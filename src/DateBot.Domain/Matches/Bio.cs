@@ -1,5 +1,4 @@
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
 
 namespace DateBot.Domain.Matches;
@@ -18,13 +17,4 @@ public sealed record Bio
         Validator.ValidateAndCreate(value.Trim(), "bio.invalid", v => new Bio(v));
 
     public override string ToString() => Value;
-}
-
-public sealed class BioValidator : AbstractValidator<string>
-{
-    public BioValidator() =>
-        RuleFor(v => v)
-            .NotEmpty().WithErrorCode("bio.empty")
-            .MaximumLength(Bio.MaxLength).WithErrorCode("bio.too_long")
-            .OverridePropertyName(nameof(Bio));
 }

@@ -1,12 +1,12 @@
 using System.Collections.Immutable;
 using CSharpFunctionalExtensions;
+using DateBot.Application.UseCases;
+using DateBot.Domain.Common;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using DateBot.Application.UseCases;
-using DateBot.Domain.Common;
 
 namespace DateBot.Infrastructure.Notifier;
 

@@ -1,6 +1,5 @@
 using System.Globalization;
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
 
 namespace DateBot.Domain.Matches;
@@ -19,12 +18,4 @@ public sealed record Age
         Validator.ValidateAndCreate(value, "age.invalid", v => new Age(v));
 
     public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
-}
-
-public sealed class AgeValidator : AbstractValidator<int>
-{
-    public AgeValidator() =>
-        RuleFor(v => v)
-            .InclusiveBetween(Age.Min, Age.Max).WithErrorCode("age.out_of_range")
-            .OverridePropertyName(nameof(Age));
 }

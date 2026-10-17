@@ -1,15 +1,7 @@
-using System.Collections.Immutable;
 using DateBot.Domain.Matches;
 using DateBot.Domain.Shared;
 
 namespace DateBot.Application.Processing;
-
-public abstract record MessageRoute;
-
-/// <summary>Press <see cref="ButtonLabels"/> on <see cref="Anchor"/> (if any), then send the text to the bot.</summary>
-public sealed record ViaBotRoute(BotMessageId Anchor, ImmutableArray<string> ButtonLabels) : MessageRoute;
-
-public sealed record DirectRoute(ContactUsername Username) : MessageRoute;
 
 public static class MessageRouter
 {

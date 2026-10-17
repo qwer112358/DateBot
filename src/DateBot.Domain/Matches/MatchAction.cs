@@ -2,15 +2,6 @@ using CSharpFunctionalExtensions;
 
 namespace DateBot.Domain.Matches;
 
-public sealed record MatchActionState(
-    int Sequence,
-    ActionType Type,
-    ActionStatus Status,
-    Maybe<ReplyText> Text,
-    Maybe<string> FailureReason,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
-
 /// <summary>One entry of the action history of a <see cref="Match"/>. Changed only by the aggregate.</summary>
 public sealed class MatchAction
 {

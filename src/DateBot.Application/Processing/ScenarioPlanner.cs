@@ -4,12 +4,6 @@ using DateBot.Domain.Shared;
 
 namespace DateBot.Application.Processing;
 
-public abstract record ScenarioPlan;
-
-public sealed record IgnorePlan(string Reason) : ScenarioPlan;
-
-public sealed record ExecutePlan(bool CreateMatch, bool LikeBack, bool Message) : ScenarioPlan;
-
 /// <summary>
 /// Pure decision: what to do with a notification given what we already know about the person.
 /// Resuming the same notification after a restart repeats only the unfinished steps.

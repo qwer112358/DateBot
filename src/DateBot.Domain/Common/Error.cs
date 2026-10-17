@@ -3,19 +3,6 @@ using CSharpFunctionalExtensions;
 
 namespace DateBot.Domain.Common;
 
-public enum ErrorType
-{
-    Validation,
-    NotFound,
-    Conflict,
-    External,
-    RateLimited,
-    Unexpected,
-}
-
-/// <summary>One validation violation: which property, which rule, human-readable message.</summary>
-public sealed record ErrorDetail(string PropertyName, string ErrorCode, string Message);
-
 /// <summary>Typed error used by every <c>Result</c> in the solution instead of exceptions.</summary>
 public sealed record Error(string Code, string Message, ErrorType Type)
 {

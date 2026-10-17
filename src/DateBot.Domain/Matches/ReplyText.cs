@@ -1,5 +1,4 @@
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
 
 namespace DateBot.Domain.Matches;
@@ -19,15 +18,4 @@ public sealed record ReplyText
         Validator.ValidateAndCreate(value.Trim(), "reply_text.invalid", v => new ReplyText(v));
 
     public override string ToString() => Value;
-}
-
-public sealed class ReplyTextValidator : AbstractValidator<string>
-{
-    public ReplyTextValidator() =>
-        RuleFor(v => v)
-            .Length(ReplyText.MinLength, ReplyText.MaxLength).WithErrorCode("reply_text.length")
-            .Must(v => !TextRules.ContainsLink(v)).WithErrorCode("reply_text.link").WithMessage("Текст содержит ссылку")
-            .Must(v => !TextRules.ContainsPhone(v)).WithErrorCode("reply_text.phone").WithMessage("Текст содержит номер телефона")
-            .Must(v => !TextRules.ContainsMention(v)).WithErrorCode("reply_text.mention").WithMessage("Текст содержит @упоминание")
-            .OverridePropertyName(nameof(ReplyText));
 }

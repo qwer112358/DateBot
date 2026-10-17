@@ -1,5 +1,4 @@
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
 
 namespace DateBot.Domain.Shared;
@@ -27,10 +26,4 @@ public sealed record BotMessageId : IComparable<BotMessageId>
     public static bool operator >=(BotMessageId left, BotMessageId right) => left.CompareTo(right) >= 0;
 
     public override string ToString() => Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-}
-
-public sealed class BotMessageIdValidator : AbstractValidator<long>
-{
-    public BotMessageIdValidator() =>
-        RuleFor(v => v).GreaterThan(0).OverridePropertyName(nameof(BotMessageId)).WithErrorCode("bot_message_id.not_positive");
 }

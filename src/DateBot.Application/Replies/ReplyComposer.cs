@@ -1,21 +1,12 @@
 using CSharpFunctionalExtensions;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using DateBot.Application.Ports;
 using DateBot.Application.Telegram;
 using DateBot.Domain.Common;
 using DateBot.Domain.Matches;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DateBot.Application.Replies;
-
-public enum ReplySource
-{
-    Llm,
-    Template,
-}
-
-/// <param name="Rejection">Why the LLM text was not used, when <see cref="Source"/> is Template.</param>
-public sealed record ComposedReply(ReplyText Text, ReplySource Source, Maybe<string> Rejection);
 
 /// <summary>LLM text when it passes the checks, otherwise a template.</summary>
 public sealed class ReplyComposer(

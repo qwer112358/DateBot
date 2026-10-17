@@ -35,9 +35,3 @@ public sealed class SyncCursor
                 LastProcessedAt = now;
             });
 }
-
-public static class SyncCursorErrors
-{
-    public static Error MustMoveForward(long current, BotMessageId requested) => Error.Conflict(
-        "sync_cursor.backwards", $"Курсор двигается только вперёд: сейчас {current}, запрошено {requested}");
-}

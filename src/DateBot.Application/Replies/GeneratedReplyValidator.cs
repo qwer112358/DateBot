@@ -1,12 +1,10 @@
 using System.Globalization;
 using System.Text;
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
+using FluentValidation;
 
 namespace DateBot.Application.Replies;
-
-public sealed record ReplyCandidate(string Text, ReplyLanguage ExpectedLanguage, int MinLength, int MaxLength, int MaxEmoji);
 
 /// <summary>Checks the LLM output before it can be sent.</summary>
 public sealed class GeneratedReplyValidator : AbstractValidator<ReplyCandidate>

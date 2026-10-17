@@ -3,8 +3,6 @@ using CSharpFunctionalExtensions;
 
 namespace DateBot.Application.Telegram;
 
-public sealed record BotButton(string Text, int Row, int Column);
-
 /// <summary>An incoming message from the Tashdate bot, already stripped of Telegram types.</summary>
 public sealed record RawBotMessage(
     long Id,
@@ -21,6 +19,3 @@ public sealed record RawBotMessage(
         return Text + buttons + photo;
     }
 }
-
-/// <summary>Downloaded profile photo.</summary>
-public sealed record ProfilePhoto(ReadOnlyMemory<byte> Content, string MediaType);

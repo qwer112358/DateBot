@@ -1,5 +1,4 @@
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
 
 namespace DateBot.Domain.Matches;
@@ -21,14 +20,4 @@ public sealed record TashdateUserId
         Validator.ValidateAndCreate(value.Trim(), "tashdate_user_id.invalid", v => new TashdateUserId(v));
 
     public override string ToString() => Value;
-}
-
-public sealed class TashdateUserIdValidator : AbstractValidator<string>
-{
-    public TashdateUserIdValidator() =>
-        RuleFor(v => v)
-            .NotEmpty().WithErrorCode("tashdate_user_id.empty")
-            .MaximumLength(TashdateUserId.MaxLength).WithErrorCode("tashdate_user_id.too_long")
-            .Matches(@"^\S+$").WithErrorCode("tashdate_user_id.whitespace")
-            .OverridePropertyName(nameof(TashdateUserId));
 }

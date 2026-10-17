@@ -10,10 +10,6 @@ using DateBot.Domain.Matches;
 
 namespace DateBot.Infrastructure.Notifier;
 
-public sealed record InlineAction(string Text, string Data);
-
-public sealed record FormattedNotification(string Html, ImmutableArray<InlineAction> Buttons, Maybe<PhotoFileId> Photo);
-
 /// <summary>Pure: notification → HTML text and inline buttons for the notifier bot.</summary>
 public static class NotificationFormatter
 {

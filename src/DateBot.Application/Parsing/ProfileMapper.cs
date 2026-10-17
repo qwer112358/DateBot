@@ -6,8 +6,6 @@ using DateBot.Domain.Matches;
 
 namespace DateBot.Application.Parsing;
 
-public sealed record MappedProfile(TashdateUserId PersonId, Profile Profile);
-
 /// <summary>Turns parsed text into domain value objects; collects every violation into one error.</summary>
 public static class ProfileMapper
 {

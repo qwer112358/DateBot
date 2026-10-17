@@ -1,12 +1,12 @@
-using FluentValidation;
-using Serilog;
-using Serilog.Events;
 using DateBot.Application;
 using DateBot.Application.Parsing;
 using DateBot.Application.Processing;
 using DateBot.Application.Replies;
 using DateBot.Infrastructure;
 using DateBot.Worker;
+using FluentValidation;
+using Serilog;
+using Serilog.Events;
 
 var builder = Host.CreateApplicationBuilder(args);
 

@@ -1,16 +1,5 @@
 namespace DateBot.Domain.Common;
 
-public interface IDomainEvent
-{
-    DateTimeOffset OccurredAt { get; }
-}
-
-public interface IAggregateRoot
-{
-    /// <summary>Returns the raised events and clears them; called by the unit of work after commit.</summary>
-    IReadOnlyList<IDomainEvent> PullDomainEvents();
-}
-
 public abstract class AggregateRoot<TId>(TId id) : IAggregateRoot
     where TId : notnull
 {

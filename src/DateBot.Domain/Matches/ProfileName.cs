@@ -1,5 +1,4 @@
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
 
 namespace DateBot.Domain.Matches;
@@ -17,14 +16,4 @@ public sealed record ProfileName
         Validator.ValidateAndCreate(TextRules.NormalizeSpaces(value), "profile_name.invalid", v => new ProfileName(v));
 
     public override string ToString() => Value;
-}
-
-public sealed class ProfileNameValidator : AbstractValidator<string>
-{
-    public ProfileNameValidator() =>
-        RuleFor(v => v)
-            .NotEmpty().WithErrorCode("profile_name.empty")
-            .MaximumLength(ProfileName.MaxLength).WithErrorCode("profile_name.too_long")
-            .Must(v => !v.Contains('\n')).WithErrorCode("profile_name.multiline")
-            .OverridePropertyName(nameof(ProfileName));
 }

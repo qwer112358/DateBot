@@ -10,7 +10,7 @@ using DateBot.Infrastructure.Persistence;
 
 namespace DateBot.Infrastructure.Persistence.Migrations
 {
-    [DbContext(typeof(TashdateDbContext))]
+    [DbContext(typeof(DateBotDbContext))]
     [Migration("20261017165400_InitialCreate")]
     partial class InitialCreate
     {

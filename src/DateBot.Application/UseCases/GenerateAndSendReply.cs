@@ -1,6 +1,4 @@
 using CSharpFunctionalExtensions;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using DateBot.Application.Ports;
 using DateBot.Application.Processing;
 using DateBot.Application.Replies;
@@ -8,15 +6,10 @@ using DateBot.Application.Telegram;
 using DateBot.Domain.Common;
 using DateBot.Domain.Matches;
 using DateBot.Domain.Shared;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DateBot.Application.UseCases;
-
-public enum ReplyOutcome
-{
-    NotNeeded,
-    Sent,
-    Drafted,
-}
 
 /// <summary>
 /// Downloads the photo, writes the message (LLM or template), then either sends it or, in Confirm mode,

@@ -1,4 +1,7 @@
 using CSharpFunctionalExtensions;
+using DateBot.Application.Notifications;
+using DateBot.Application.Ports;
+using DateBot.Domain.Common;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -7,22 +10,8 @@ using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
-using DateBot.Application.Notifications;
-using DateBot.Application.Ports;
-using DateBot.Domain.Common;
 
 namespace DateBot.Infrastructure.Notifier;
-
-/// <summary>The Bot API client, present only when a token is configured.</summary>
-public sealed class NotifierBot(IOptions<NotifierOptions> options)
-{
-    private readonly Lazy<Maybe<ITelegramBotClient>> _client = new(() =>
-        string.IsNullOrWhiteSpace(options.Value.BotToken)
-            ? Maybe<ITelegramBotClient>.None
-            : Maybe.From<ITelegramBotClient>(new TelegramBotClient(options.Value.BotToken)));
-
-    public Maybe<ITelegramBotClient> Client => _client.Value;
-}
 
 /// <summary>
 /// Sends notifications to your chat with the notifier bot. Push notifications work because the message

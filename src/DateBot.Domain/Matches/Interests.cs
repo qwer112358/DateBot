@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
+using FluentValidation;
 
 namespace DateBot.Domain.Matches;
 
@@ -33,17 +33,4 @@ public sealed record Interests
     public override int GetHashCode() => Items.Aggregate(0, (hash, item) => HashCode.Combine(hash, item));
 
     public override string ToString() => string.Join(", ", Items);
-}
-
-public sealed class InterestsValidator : AbstractValidator<ImmutableArray<string>>
-{
-    public InterestsValidator()
-    {
-        RuleFor(v => v.Length)
-            .LessThanOrEqualTo(Interests.MaxCount).WithErrorCode("interests.too_many")
-            .OverridePropertyName(nameof(Interests));
-        RuleForEach(v => v)
-            .MaximumLength(Interests.MaxItemLength).WithErrorCode("interests.item_too_long")
-            .OverridePropertyName(nameof(Interests));
-    }
 }

@@ -1,16 +1,15 @@
 using CSharpFunctionalExtensions;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using DateBot.Application.Abstractions;
-using DateBot.Application.Parsing;
 using DateBot.Application.Ports;
 using DateBot.Application.Processing;
 using DateBot.Application.Replies;
 using DateBot.Application.Telegram;
 using DateBot.Application.UseCases;
 using DateBot.Domain.Common;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace DateBot.Application.Tests;
 

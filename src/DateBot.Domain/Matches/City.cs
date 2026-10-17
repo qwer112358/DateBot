@@ -1,5 +1,4 @@
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
 
 namespace DateBot.Domain.Matches;
@@ -17,13 +16,4 @@ public sealed record City
         Validator.ValidateAndCreate(TextRules.NormalizeSpaces(value), "city.invalid", v => new City(v));
 
     public override string ToString() => Value;
-}
-
-public sealed class CityValidator : AbstractValidator<string>
-{
-    public CityValidator() =>
-        RuleFor(v => v)
-            .NotEmpty().WithErrorCode("city.empty")
-            .MaximumLength(City.MaxLength).WithErrorCode("city.too_long")
-            .OverridePropertyName(nameof(City));
 }

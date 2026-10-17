@@ -1,11 +1,4 @@
 using CSharpFunctionalExtensions;
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using DateBot.Application.Abstractions;
 using DateBot.Application.Ports;
 using DateBot.Application.Processing;
@@ -14,6 +7,13 @@ using DateBot.Domain.Inbox;
 using DateBot.Domain.Matches;
 using DateBot.Domain.Shared;
 using DateBot.Infrastructure.Persistence;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace DateBot.Infrastructure.Tests;
 
@@ -118,11 +118,18 @@ public sealed class PersistenceTests : IAsyncLifetime
     {
         await InScopeAsync(async sp =>
         {
-            var db = sp.GetRequiredService<TashdateDbContext>();
+            var db = sp.GetRequiredService<DateBotDbContext>();
             db.Matches.Add(new MatchRecord
             {
-                Id = Guid.NewGuid(), PersonId = "fp:broken", BotMessageId = 9, Name = "Лена", Age = 15,
-                Kind = MatchKind.LikedMe, Status = MatchStatus.Received, ReceivedAt = Now, UpdatedAt = Now,
+                Id = Guid.NewGuid(),
+                PersonId = "fp:broken",
+                BotMessageId = 9,
+                Name = "Лена",
+                Age = 15,
+                Kind = MatchKind.LikedMe,
+                Status = MatchStatus.Received,
+                ReceivedAt = Now,
+                UpdatedAt = Now,
             });
             await db.SaveChangesAsync();
         });
@@ -184,7 +191,7 @@ public sealed class PersistenceTests : IAsyncLifetime
 
         await InScopeAsync(async sp =>
         {
-            var db = sp.GetRequiredService<TashdateDbContext>();
+            var db = sp.GetRequiredService<DateBotDbContext>();
             (await db.Matches.CountAsync()).Should().Be(0);
             (await db.Actions.CountAsync()).Should().Be(0);
         });

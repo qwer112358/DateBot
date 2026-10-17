@@ -1,6 +1,6 @@
-using NetArchTest.Rules;
 using DateBot.Application.UseCases;
 using DateBot.Domain.Matches;
+using NetArchTest.Rules;
 
 namespace DateBot.Application.Tests;
 

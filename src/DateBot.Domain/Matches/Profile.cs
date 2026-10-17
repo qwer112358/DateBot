@@ -1,18 +1,7 @@
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
 
 namespace DateBot.Domain.Matches;
-
-public sealed record ProfileInput(
-    ProfileName Name,
-    Maybe<Age> Age,
-    Maybe<City> City,
-    Maybe<Bio> Bio,
-    Interests Interests,
-    Maybe<PhotoFileId> Photo,
-    Maybe<ContactUsername> Username,
-    string RawText);
 
 /// <summary>Everything the Tashdate bot showed about a person, plus the original message text.</summary>
 public sealed record Profile
@@ -57,11 +46,4 @@ public sealed record Profile
     /// <summary>The same profile with the contact the bot revealed later (on a mutual like).</summary>
     public Profile WithUsername(ContactUsername username) =>
         new(new ProfileInput(Name, Age, City, Bio, Interests, Photo, username, RawText));
-}
-
-public sealed class ProfileInputValidator : AbstractValidator<ProfileInput>
-{
-    public ProfileInputValidator() =>
-        RuleFor(p => p.RawText)
-            .MaximumLength(Profile.MaxRawTextLength).WithErrorCode("profile.raw_text_too_long");
 }

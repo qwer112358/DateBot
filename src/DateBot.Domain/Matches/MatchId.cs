@@ -1,5 +1,4 @@
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
 
 namespace DateBot.Domain.Matches;
@@ -19,10 +18,4 @@ public sealed record MatchId
     public string Short => Value.ToString("N")[..8];
 
     public override string ToString() => Value.ToString("N");
-}
-
-public sealed class MatchIdValidator : AbstractValidator<Guid>
-{
-    public MatchIdValidator() =>
-        RuleFor(v => v).NotEmpty().OverridePropertyName(nameof(MatchId)).WithErrorCode("match_id.empty");
 }

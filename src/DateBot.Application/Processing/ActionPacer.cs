@@ -1,8 +1,8 @@
 using CSharpFunctionalExtensions;
-using Microsoft.Extensions.Options;
 using DateBot.Application.Abstractions;
 using DateBot.Application.Ports;
 using DateBot.Domain.Common;
+using Microsoft.Extensions.Options;
 
 namespace DateBot.Application.Processing;
 

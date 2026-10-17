@@ -1,21 +1,8 @@
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
 using DateBot.Domain.Shared;
 
 namespace DateBot.Domain.Inbox;
-
-public enum InboxStatus
-{
-    Received = 1,
-    Done = 2,
-    Ignored = 3,
-    ParseFailed = 4,
-    Failed = 5,
-}
-
-public sealed record InboxMessageState(
-    BotMessageId Id, string RawText, DateTimeOffset SentAt, InboxStatus Status, Maybe<string> Note, DateTimeOffset UpdatedAt);
 
 /// <summary>
 /// A raw message from the Tashdate bot as it arrived. Kept for every message so that nothing is lost
@@ -66,22 +53,4 @@ public sealed class InboxMessage
                 Note = note;
                 UpdatedAt = now;
             });
-}
-
-public sealed class InboxMessageStateValidator : AbstractValidator<InboxMessageState>
-{
-    public InboxMessageStateValidator()
-    {
-        RuleFor(m => m.RawText).MaximumLength(InboxMessage.MaxRawTextLength).WithErrorCode("inbox_message.too_long");
-        RuleFor(m => m.Status).IsInEnum().WithErrorCode("inbox_message.status");
-    }
-}
-
-public static class InboxErrors
-{
-    public static readonly Error NotFinal = Error.Validation(
-        "inbox_message.not_final", "Сообщение можно перевести только в финальный статус");
-
-    public static Error AlreadyResolved(BotMessageId id, InboxStatus status) => Error.Conflict(
-        "inbox_message.already_resolved", $"Сообщение {id} уже обработано (статус {status})");
 }

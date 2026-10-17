@@ -1,34 +1,4 @@
-using FluentValidation;
-
 namespace DateBot.Application.Processing;
-
-public enum ProcessingMode
-{
-    /// <summary>Messages are sent automatically.</summary>
-    Auto,
-
-    /// <summary>Drafts go to the notifier bot; sending waits for your "Send".</summary>
-    Confirm,
-}
-
-/// <summary>When to send the message in scenario A (open question: does Tashdate allow it before a mutual like?).</summary>
-public enum LikedMeMessagePolicy
-{
-    /// <summary>Right after the like back.</summary>
-    AfterLikeBack,
-
-    /// <summary>Only like back; the message goes when the mutual-like notification arrives.</summary>
-    OnMutual,
-}
-
-public enum MessageRouteKind
-{
-    /// <summary>Press the message button (if configured) and send the text into the bot chat.</summary>
-    ViaBot,
-
-    /// <summary>Write to the person directly by the username the bot revealed; falls back to ViaBot without one.</summary>
-    DirectToUser,
-}
 
 public sealed class ProcessingOptions
 {
@@ -70,41 +40,4 @@ public sealed class ProcessingOptions
     public int RetentionDays { get; init; }
 
     public FilterOptions Filters { get; init; } = new();
-}
-
-/// <summary>Placeholder for profile filters. Disabled by default: everyone gets an answer.</summary>
-public sealed class FilterOptions
-{
-    public bool Enabled { get; init; }
-
-    public int MinAge { get; init; } = 18;
-
-    public int MaxAge { get; init; } = 99;
-
-    /// <summary>Empty = any city.</summary>
-    public string[] Cities { get; init; } = [];
-
-    /// <summary>Profiles whose text contains any of these words are skipped.</summary>
-    public string[] StopWords { get; init; } = [];
-}
-
-public sealed class ProcessingOptionsValidator : AbstractValidator<ProcessingOptions>
-{
-    public ProcessingOptionsValidator()
-    {
-        RuleFor(o => o.Mode).IsInEnum();
-        RuleFor(o => o.LikedMeMessage).IsInEnum();
-        RuleFor(o => o.MutualRoute).IsInEnum();
-        RuleFor(o => o.LikeBackButtons).NotEmpty().WithMessage("Укажите подписи кнопки лайка в ответ (Processing:LikeBackButtons)");
-        RuleFor(o => o.MinPause).GreaterThanOrEqualTo(TimeSpan.Zero);
-        RuleFor(o => o.MaxPause).GreaterThanOrEqualTo(o => o.MinPause).WithMessage("MaxPause должна быть не меньше MinPause");
-        RuleFor(o => o.ButtonToTextPause).GreaterThanOrEqualTo(TimeSpan.Zero);
-        RuleFor(o => o.MaxActionsPerHour).GreaterThan(0);
-        RuleFor(o => o.HistoryBatchSize).InclusiveBetween(1, 100);
-        RuleFor(o => o.PollInterval).GreaterThan(TimeSpan.Zero);
-        RuleFor(o => o.RetentionDays).GreaterThanOrEqualTo(0);
-        RuleFor(o => o.FirstRunBackfill).InclusiveBetween(TimeSpan.Zero, TimeSpan.FromDays(30));
-        RuleFor(o => o.Filters.MinAge).InclusiveBetween(18, 99);
-        RuleFor(o => o.Filters.MaxAge).GreaterThanOrEqualTo(o => o.Filters.MinAge);
-    }
 }

@@ -1,10 +1,10 @@
 using CSharpFunctionalExtensions;
-using Microsoft.Extensions.Options;
 using DateBot.Application.Abstractions;
 using DateBot.Application.Ports;
 using DateBot.Application.Telegram;
 using DateBot.Domain.Common;
 using DateBot.Domain.Matches;
+using Microsoft.Extensions.Options;
 
 namespace DateBot.Infrastructure.Platform;
 

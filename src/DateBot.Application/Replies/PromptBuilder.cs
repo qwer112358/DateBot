@@ -3,10 +3,6 @@ using DateBot.Domain.Matches;
 
 namespace DateBot.Application.Replies;
 
-/// <param name="System">Rules for the model (operator channel).</param>
-/// <param name="User">Profile data wrapped in &lt;profile&gt; tags (untrusted).</param>
-public sealed record ReplyPrompt(string System, string User, ReplyLanguage Language);
-
 /// <summary>
 /// Pure prompt construction. The profile is written by a stranger, so it is passed as data inside tags,
 /// with angle brackets neutralised so it cannot close the tag, and the rules say to ignore any instructions in it.

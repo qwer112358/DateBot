@@ -1,14 +1,14 @@
 using Anthropic;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using DateBot.Application.Ports;
 using DateBot.Infrastructure.Llm;
 using DateBot.Infrastructure.Notifier;
 using DateBot.Infrastructure.Persistence;
 using DateBot.Infrastructure.Platform;
 using DateBot.Infrastructure.Telegram;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace DateBot.Infrastructure;
 
@@ -27,7 +27,7 @@ public static class DependencyInjection
         services.AddSingleton<IPhotoStore, FilePhotoStore>();
         services.AddSingleton<ILoginPrompt, ConsoleLoginPrompt>();
 
-        services.AddDbContext<TashdateDbContext>((sp, db) =>
+        services.AddDbContext<DateBotDbContext>((sp, db) =>
             db.UseSqlite($"Data Source={sp.GetRequiredService<IOptions<StorageOptions>>().Value.DatabasePath}"));
         services.AddScoped<ChangeSet>();
         services.AddScoped<IMatchRepository, EfMatchRepository>();
@@ -54,19 +54,5 @@ public static class DependencyInjection
         services.AddSingleton<IReplyGenerator, AnthropicReplyGenerator>();
 
         return services;
-    }
-}
-
-/// <summary>Creates the data folder and applies EF Core migrations on start.</summary>
-public sealed class DatabaseInitializer(TashdateDbContext db, IOptions<StorageOptions> storage)
-{
-    public async Task InitializeAsync(CancellationToken ct)
-    {
-        Directory.CreateDirectory(storage.Value.ResolveDataDirectory());
-        Directory.CreateDirectory(storage.Value.PhotosPath);
-        await db.Database.MigrateAsync(ct);
-
-        // WAL lets the notifier bot read while the main loop writes.
-        await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;", ct);
     }
 }

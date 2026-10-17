@@ -1,7 +1,7 @@
-using Microsoft.Extensions.Configuration;
 using DateBot.Application.Parsing;
 using DateBot.Application.Processing;
 using DateBot.Application.Replies;
+using Microsoft.Extensions.Configuration;
 
 namespace DateBot.Infrastructure.Tests;
 

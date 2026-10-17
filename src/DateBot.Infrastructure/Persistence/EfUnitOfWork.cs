@@ -1,6 +1,5 @@
 using System.Globalization;
 using CSharpFunctionalExtensions;
-using Microsoft.EntityFrameworkCore;
 using DateBot.Application.Abstractions;
 using DateBot.Application.Ports;
 using DateBot.Domain.Common;
@@ -11,7 +10,7 @@ namespace DateBot.Infrastructure.Persistence;
 /// Writes every aggregate of the scope with one <c>SaveChanges</c> (one SQLite transaction),
 /// then publishes the collected domain events.
 /// </summary>
-internal sealed class EfUnitOfWork(TashdateDbContext db, ChangeSet changes, IDomainEventDispatcher events) : IUnitOfWork
+internal sealed class EfUnitOfWork(DateBotDbContext db, ChangeSet changes, IDomainEventDispatcher events) : IUnitOfWork
 {
     public async Task<UnitResult<Error>> CommitAsync(CancellationToken ct)
     {

@@ -1,8 +1,8 @@
 using CSharpFunctionalExtensions;
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using DateBot.Application.Abstractions;
 using DateBot.Domain.Common;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 
 namespace DateBot.Infrastructure.Persistence;
 

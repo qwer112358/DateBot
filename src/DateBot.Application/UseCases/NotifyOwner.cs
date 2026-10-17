@@ -1,11 +1,11 @@
 using CSharpFunctionalExtensions;
-using Microsoft.Extensions.Options;
 using DateBot.Application.Abstractions;
 using DateBot.Application.Notifications;
 using DateBot.Application.Ports;
 using DateBot.Application.Processing;
 using DateBot.Domain.Common;
 using DateBot.Domain.Matches;
+using Microsoft.Extensions.Options;
 
 namespace DateBot.Application.UseCases;
 

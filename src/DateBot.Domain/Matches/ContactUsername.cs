@@ -1,5 +1,4 @@
 using CSharpFunctionalExtensions;
-using FluentValidation;
 using DateBot.Domain.Common;
 
 namespace DateBot.Domain.Matches;
@@ -17,12 +16,4 @@ public sealed record ContactUsername
         Validator.ValidateAndCreate(value.Trim().TrimStart('@'), "contact_username.invalid", v => new ContactUsername(v));
 
     public override string ToString() => "@" + Value;
-}
-
-public sealed class ContactUsernameValidator : AbstractValidator<string>
-{
-    public ContactUsernameValidator() =>
-        RuleFor(v => v)
-            .Matches("^[A-Za-z][A-Za-z0-9_]{4,31}$").WithErrorCode("contact_username.format")
-            .OverridePropertyName(nameof(ContactUsername));
 }

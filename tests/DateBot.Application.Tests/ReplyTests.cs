@@ -1,10 +1,10 @@
 using CSharpFunctionalExtensions;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using DateBot.Application.Replies;
 using DateBot.Application.Telegram;
 using DateBot.Domain.Common;
 using DateBot.Domain.Matches;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace DateBot.Application.Tests;
 

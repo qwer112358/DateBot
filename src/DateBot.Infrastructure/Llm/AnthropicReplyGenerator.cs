@@ -2,11 +2,11 @@ using Anthropic;
 using Anthropic.Exceptions;
 using Anthropic.Models.Messages;
 using CSharpFunctionalExtensions;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using DateBot.Application.Ports;
 using DateBot.Application.Replies;
 using DateBot.Application.Telegram;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using DomainError = DateBot.Domain.Common.Error;
 
 namespace DateBot.Infrastructure.Llm;

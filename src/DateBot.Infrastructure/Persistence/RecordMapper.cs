@@ -19,14 +19,16 @@ internal static class RecordMapper
 
         var id = Take(MatchId.Create(record.Id), errors);
         var personId = Take(TashdateUserId.Create(record.PersonId), errors);
-        var source = Take(BotMessageId.Create(record.BotMessageId), errors);
+        var source = Take(Optional(record.BotMessageId, BotMessageId.Create), errors);
         var name = Take(ProfileName.Create(record.Name), errors);
         var age = Take(Optional(record.Age, Age.Create), errors);
         var city = Take(Optional(record.City, City.Create), errors);
         var bio = Take(Optional(record.Bio, Bio.Create), errors);
-        var interests = Take(Interests.Create(record.Interests.Split('\n', StringSplitOptions.RemoveEmptyEntries)), errors);
+        var interests = Take(Interests.Create(Lines(record.Interests)), errors);
+        var facts = Take(ProfileFacts.Create(Lines(record.Facts)), errors);
         var photo = Take(Optional(record.PhotoFileId, PhotoFileId.Create), errors);
         var username = Take(Optional(record.Username, ContactUsername.Create), errors);
+        var appId = Take(Optional(record.AppId, AppProfileId.Create), errors);
         var actions = record.Actions.Select(a => Take(ToState(a), errors)).ToList();
 
         if (errors.Count > 0)
@@ -35,9 +37,10 @@ internal static class RecordMapper
         }
 
         return Profile
-            .Create(new ProfileInput(name!, age, city, bio, interests!, photo, username, record.RawText))
+            .Create(new ProfileInput(name!, age, city, bio, interests!, photo, username, record.RawText, facts, appId))
             .Bind(profile => Match.Restore(new MatchState(
-                id!, personId!, source!, record.Kind, profile, record.ReceivedAt, record.Status, [.. actions.OfType<MatchActionState>()])))
+                id!, personId!, source, record.Kind, profile, record.ReceivedAt, record.Status,
+                [.. actions.OfType<MatchActionState>()], record.IsMutual)))
             .MapError(error => ServiceErrors.CorruptedData($"Profiles/{record.Id}: {error.Message}"));
     }
 
@@ -53,17 +56,20 @@ internal static class RecordMapper
     {
         var profile = match.Profile;
         record.PersonId = match.PersonId.Value;
-        record.BotMessageId = match.SourceMessageId.Value;
+        record.BotMessageId = match.SourceMessageId.HasValue ? match.SourceMessageId.GetValueOrThrow().Value : null;
         record.Name = profile.Name.Value;
         record.Age = profile.Age.HasValue ? profile.Age.GetValueOrThrow().Value : null;
         record.City = profile.City.HasValue ? profile.City.GetValueOrThrow().Value : null;
         record.Bio = profile.Bio.HasValue ? profile.Bio.GetValueOrThrow().Value : null;
         record.Interests = string.Join('\n', profile.Interests.Items);
+        record.Facts = string.Join('\n', profile.Facts.Items);
         record.PhotoFileId = profile.Photo.HasValue ? profile.Photo.GetValueOrThrow().Value : null;
         record.Username = profile.Username.HasValue ? profile.Username.GetValueOrThrow().Value : null;
+        record.AppId = profile.AppId.HasValue ? profile.AppId.GetValueOrThrow().Value : null;
         record.RawText = profile.RawText;
         record.Kind = match.Kind;
         record.Status = match.Status;
+        record.IsMutual = match.IsMutual;
         record.ReceivedAt = match.ReceivedAt;
         record.UpdatedAt = match.Actions.Count == 0 ? match.ReceivedAt : match.Actions.Max(a => a.UpdatedAt);
 
@@ -82,8 +88,12 @@ internal static class RecordMapper
             row.Error = action.FailureReason.HasValue ? action.FailureReason.GetValueOrThrow() : null;
             row.UpdatedAt = action.UpdatedAt;
             row.AnchorMessageId = action.Anchor.HasValue ? action.Anchor.GetValueOrThrow().Value : null;
+            row.Channel = action.Channel.HasValue ? action.Channel.GetValueOrThrow() : null;
         }
     }
+
+    /// <summary>Tombstone keys of a stored row, the same as <see cref="Match.IdentityKeys"/> of the aggregate.</summary>
+    public static IEnumerable<string> IdentityKeys(MatchRecord record) => PersonKeys.Of(record.PersonId, record.Username, record.AppId);
 
     public static Result<InboxMessage, Error> ToDomain(InboxRecord record) =>
         BotMessageId.Create(record.Id)
@@ -110,7 +120,11 @@ internal static class RecordMapper
     private static Result<MatchActionState, Error> ToState(ActionRecord row) =>
         Optional(row.MessageText, ReplyText.Create).Bind<Maybe<ReplyText>, MatchActionState, Error>(text =>
             Optional(row.AnchorMessageId, BotMessageId.Create).Map<Maybe<BotMessageId>, MatchActionState, Error>(anchor =>
-                new MatchActionState(row.Sequence, row.Type, row.Status, text, Maybe.From(row.Error), row.CreatedAt, row.UpdatedAt, anchor)));
+                new MatchActionState(
+                    row.Sequence, row.Type, row.Status, text, Maybe.From(row.Error), row.CreatedAt, row.UpdatedAt, anchor,
+                    row.Channel is { } channel ? channel : Maybe<MessageChannel>.None)));
+
+    private static string[] Lines(string value) => value.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
     private static Result<Maybe<TVo>, Error> Optional<TVo>(string? value, Func<string, Result<TVo, Error>> create) =>
         value is null ? Maybe<TVo>.None : create(value).Map(vo => Maybe.From(vo));

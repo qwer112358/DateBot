@@ -16,6 +16,7 @@ public sealed class MatchAction
         CreatedAt = state.CreatedAt;
         UpdatedAt = state.UpdatedAt;
         Anchor = state.Anchor;
+        Channel = state.Channel;
     }
 
     public int Sequence { get; }
@@ -32,15 +33,24 @@ public sealed class MatchAction
 
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    /// <summary>For a draft: the bot notification it answers; approval sends the message against it.</summary>
+    /// <summary>For a draft: the bot notification it answers; the bot-chat route sends the message against it.</summary>
     public Maybe<BotMessageId> Anchor { get; }
+
+    /// <summary>For a message: where it went; a draft has none until the owner picks one.</summary>
+    public Maybe<MessageChannel> Channel { get; private set; }
 
     /// <summary>In-memory only: the pending send came from a draft approved by the owner.</summary>
     private bool PromotedFromDraft { get; set; }
 
     internal static MatchAction Start(
-        int sequence, ActionType type, ActionStatus status, Maybe<ReplyText> text, DateTimeOffset now, Maybe<BotMessageId> anchor = default) =>
-        new(new MatchActionState(sequence, type, status, text, Maybe<string>.None, now, now, anchor));
+        int sequence,
+        ActionType type,
+        ActionStatus status,
+        Maybe<ReplyText> text,
+        DateTimeOffset now,
+        Maybe<BotMessageId> anchor = default,
+        Maybe<MessageChannel> channel = default) =>
+        new(new MatchActionState(sequence, type, status, text, Maybe<string>.None, now, now, anchor, channel));
 
     internal static MatchAction Restore(MatchActionState state) => new(state);
 
@@ -54,9 +64,10 @@ public sealed class MatchAction
         Set(ActionStatus.Failed, now);
     }
 
-    internal void Promote(ReplyText text, DateTimeOffset now)
+    internal void Promote(ReplyText text, MessageChannel channel, DateTimeOffset now)
     {
         Text = text;
+        Channel = channel;
         PromotedFromDraft = true;
         Set(ActionStatus.Pending, now);
     }
@@ -68,6 +79,7 @@ public sealed class MatchAction
         {
             PromotedFromDraft = false;
             FailureReason = reason;
+            Channel = Maybe<MessageChannel>.None;
             Set(ActionStatus.Draft, now);
             return;
         }

@@ -3,6 +3,7 @@ using DateBot.Application.Parsing;
 using DateBot.Application.Processing;
 using DateBot.Application.Replies;
 using DateBot.Infrastructure;
+using DateBot.Infrastructure.MiniApp;
 using DateBot.Worker;
 using FluentValidation;
 using Serilog;
@@ -32,6 +33,7 @@ builder.Services.AddValidatedOptions<TelegramOptions>(builder.Configuration, Tel
 builder.Services.AddValidatedOptions<NotifierOptions>(builder.Configuration, NotifierOptions.Section);
 builder.Services.AddValidatedOptions<AnthropicOptions>(builder.Configuration, AnthropicOptions.Section);
 builder.Services.AddValidatedOptions<StorageOptions>(builder.Configuration, StorageOptions.Section);
+builder.Services.AddValidatedOptions<MiniAppClientOptions>(builder.Configuration, MiniAppClientOptions.Section);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);

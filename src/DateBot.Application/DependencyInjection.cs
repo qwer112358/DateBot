@@ -24,10 +24,13 @@ public static class DependencyInjection
         services.AddScoped<ActionPacer>();
         services.AddScoped<ReplyComposer>();
         services.AddScoped<LikeBack>();
+        services.AddScoped<EnrichFromApp>();
         services.AddScoped<GenerateAndSendReply>();
 
         services.AddCommandHandler<ProcessBotMessageCommand, ProcessOutcome, ProcessBotMessageHandler>();
         services.AddCommandHandler<CatchUpHistoryCommand, CatchUpReport, CatchUpHistoryHandler>();
+        services.AddCommandHandler<SyncAppLikesCommand, AppSyncReport, SyncAppLikesHandler>();
+        services.AddCommandHandler<ProcessAppLikeCommand, ProcessOutcome, ProcessAppLikeHandler>();
         services.AddCommandHandler<SendReplyCommand, DraftDecision, SendReplyHandler>();
         services.AddCommandHandler<GetStatusQuery, StatusReport, GetStatusHandler>();
         services.AddCommandHandler<HandleOwnerRequestCommand, Unit, HandleOwnerRequestHandler>();

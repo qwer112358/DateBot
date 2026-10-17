@@ -3,6 +3,8 @@ using DateBot.Application.Parsing;
 using DateBot.Application.Processing;
 using DateBot.Application.Replies;
 using DateBot.Application.Telegram;
+using DateBot.Domain.Matches;
+using DateBot.Infrastructure.MiniApp;
 using Microsoft.Extensions.Configuration;
 
 namespace DateBot.Infrastructure.Tests;
@@ -31,6 +33,29 @@ public sealed class ConfigurationTests
         new NotifierOptionsValidator().Validate(Bind<NotifierOptions>(NotifierOptions.Section)).Errors.Should().BeEmpty();
         new AnthropicOptionsValidator().Validate(Bind<AnthropicOptions>(AnthropicOptions.Section)).Errors.Should().BeEmpty();
         new StorageOptionsValidator().Validate(Bind<StorageOptions>(StorageOptions.Section)).Errors.Should().BeEmpty();
+        new MiniAppClientOptionsValidator().Validate(Bind<MiniAppClientOptions>(MiniAppClientOptions.Section)).Errors.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Shipped_settings_let_you_pick_Telegram_or_the_app_for_every_match()
+    {
+        var processing = Bind<ProcessingOptions>(ProcessingOptions.Section);
+
+        processing.Mode.Should().Be(ProcessingMode.Confirm);
+        processing.Channels.Should().Equal(MessageChannel.Telegram, MessageChannel.App);
+        processing.MiniApp.Enabled.Should().BeTrue();
+        processing.MiniApp.PollInterval.Should().Be(TimeSpan.FromMinutes(10));
+    }
+
+    [Fact]
+    public void Shipped_settings_treat_like_hints_as_hints()
+    {
+        var rules = ParsingRules.From(Bind<ParsingOptions>(ParsingOptions.Section));
+        var hint = new RawBotMessage(
+            50, DateTimeOffset.UtcNow, "💌 Тобой интересуются\n\nЗагляни в приложение — вдруг это взаимно.",
+            [new BotButton("💛 Открыть знакомства", 0, 0)], Maybe<string>.None);
+
+        BotNotificationParser.Parse(hint, rules).Should().BeOfType<LikeHintNotification>();
     }
 
     [Fact]

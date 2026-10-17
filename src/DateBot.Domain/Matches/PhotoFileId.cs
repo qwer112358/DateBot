@@ -3,7 +3,7 @@ using DateBot.Domain.Common;
 
 namespace DateBot.Domain.Matches;
 
-/// <summary>Reference to the profile photo in Telegram (MTProto photo id).</summary>
+/// <summary>Reference to the profile photo: a Telegram photo id (<c>photo:…</c>) or a file of the dating app (<c>app:…</c>).</summary>
 public sealed record PhotoFileId
 {
     public const int MaxLength = 256;

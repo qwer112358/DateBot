@@ -1,3 +1,4 @@
+using CSharpFunctionalExtensions;
 using DateBot.Domain.Shared;
 
 namespace DateBot.Domain.Matches;
@@ -6,9 +7,10 @@ namespace DateBot.Domain.Matches;
 public sealed record MatchState(
     MatchId Id,
     TashdateUserId PersonId,
-    BotMessageId SourceMessageId,
+    Maybe<BotMessageId> SourceMessageId,
     MatchKind Kind,
     Profile Profile,
     DateTimeOffset ReceivedAt,
     MatchStatus Status,
-    IReadOnlyList<MatchActionState> Actions);
+    IReadOnlyList<MatchActionState> Actions,
+    bool IsMutual);

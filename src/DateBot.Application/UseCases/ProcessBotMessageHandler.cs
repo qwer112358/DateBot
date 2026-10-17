@@ -68,6 +68,8 @@ internal sealed class ProcessBotMessageHandler(
         {
             LikeNotification like => HandleProfileAsync(context, MatchKind.LikedMe, like.Profile, ct),
             MutualNotification mutual => HandleProfileAsync(context, MatchKind.Mutual, mutual.Profile, ct),
+            LikeHintNotification => FinishAsync(context, InboxStatus.Ignored, "Подсказка о лайке: анкета и ответ — через приложение", ct)
+                .Map(() => ProcessOutcome.LikeHint),
             IgnoredNotification ignored => IgnoreAsync(context, ignored.Reason, ct),
             UnknownNotification unknown => ParseFailedAsync(context, unknown.Reason, ct),
             var other => ParseFailedAsync(context, $"Неподдержанный тип уведомления {other.GetType().Name}", ct),
@@ -80,27 +82,36 @@ internal sealed class ProcessBotMessageHandler(
             { IsFailure: true } failed => ParseFailedAsync(context, failed.Error.Message, ct),
             { Value: var mapped } when !ProfileFilter.Accepts(mapped.Profile, options.Value.Filters) =>
                 IgnoreAsync(context, $"Анкета {mapped.Profile.Name} не прошла фильтры", ct),
-            { Value: var mapped } => matches
-                .FindByPersonAsync(mapped.PersonId, ct)
+            { Value: var mapped } => FindAsync(mapped, ct)
                 .Bind(existing => existing.HasValue
                     ? ExecuteAsync(context, kind, mapped, existing, ct)
                     : ExecuteUnlessForgottenAsync(context, kind, mapped, ct)),
         };
 
+    /// <summary>
+    /// By the key of this notification, then by contact: a match card for someone already met as a like in the app
+    /// carries the username the app revealed on our like back.
+    /// </summary>
+    private Task<Result<Maybe<Match>, Error>> FindAsync(MappedProfile mapped, CancellationToken ct) =>
+        matches.FindByPersonAsync(mapped.PersonId, ct)
+            .Bind(byKey => byKey.HasValue
+                ? Task.FromResult(Result.Success<Maybe<Match>, Error>(byKey))
+                : matches.FindByContactAsync(mapped.Profile.Username, mapped.Profile.AppId, ct));
+
     /// <summary>A person whose data was deleted ("Forget" or retention) was already answered once: never again.</summary>
     private Task<Result<ProcessOutcome, Error>> ExecuteUnlessForgottenAsync(
         MessageContext context, MatchKind kind, MappedProfile mapped, CancellationToken ct) =>
-        matches.IsForgottenAsync(mapped.PersonId, ct)
+        matches.IsForgottenAsync(PersonKeys.Of(mapped.PersonId, mapped.Profile), ct)
             .Bind(forgotten => forgotten
                 ? IgnoreAsync(context, $"Данные о {mapped.Profile.Name} были удалены, повторно не отвечаем", ct)
                 : ExecuteAsync(context, kind, mapped, Maybe<Match>.None, ct));
 
     private Task<Result<ProcessOutcome, Error>> ExecuteAsync(
         MessageContext context, MatchKind kind, MappedProfile mapped, Maybe<Match> existing, CancellationToken ct) =>
-        ScenarioPlanner.Plan(kind, existing, context.Id, options.Value.LikedMeMessage) switch
+        ScenarioPlanner.Plan(kind, context.Id, existing) switch
         {
             ExecutePlan plan => GetOrCreateAsync(context, kind, mapped, existing, ct)
-                .Bind(match => RunStepsAsync(context, kind, match, plan, ct)),
+                .Bind(match => RunStepsAsync(context, match, plan, ct)),
             IgnorePlan ignore => IgnoreAsync(context, ignore.Reason, ct),
             var other => ParseFailedAsync(context, $"Неизвестный план {other.GetType().Name}", ct),
         };
@@ -108,19 +119,25 @@ internal sealed class ProcessBotMessageHandler(
     private Task<Result<Match, Error>> GetOrCreateAsync(
         MessageContext context, MatchKind kind, MappedProfile mapped, Maybe<Match> existing, CancellationToken ct) =>
         existing.HasValue
-            ? Task.FromResult(existing.GetValueOrThrow().RevealContact(mapped.Profile.Username).Map(() => existing.GetValueOrThrow()))
+            ? Task.FromResult(Update(existing.GetValueOrThrow(), kind, mapped))
             : MatchId.Create(Guid.CreateVersion7(clock.UtcNow))
                 .Bind(id => Match.Create(new MatchInput(id, mapped.PersonId, context.Id, kind, mapped.Profile, clock.UtcNow)))
                 .Bind(match => matches.AddAsync(match, ct)
                     .Bind(() => unitOfWork.CommitAsync(ct))
                     .Map(() => match));
 
+    /// <summary>A later notification about a known person: a mutual one confirms the match and may reveal the username.</summary>
+    private static Result<Match, Error> Update(Match match, MatchKind kind, MappedProfile mapped) =>
+        match.RevealContact(mapped.Profile.Username)
+            .Bind(() => kind == MatchKind.Mutual ? match.ConfirmMutual() : UnitResult.Success<Error>())
+            .Map(() => match);
+
     private async Task<Result<ProcessOutcome, Error>> RunStepsAsync(
-        MessageContext context, MatchKind trigger, Match match, ExecutePlan plan, CancellationToken ct)
+        MessageContext context, Match match, ExecutePlan plan, CancellationToken ct)
     {
         var steps = await (plan.LikeBack ? likeBack.ExecuteAsync(match, ct) : Task.FromResult(UnitResult.Success<Error>()))
             .Bind(() => plan.Message
-                ? reply.ExecuteAsync(match, trigger, context.Id, ct)
+                ? reply.ExecuteAsync(match, context.Id, ct)
                 : Task.FromResult(Result.Success<ReplyOutcome, Error>(ReplyOutcome.NotNeeded)));
 
         return await steps.Match(

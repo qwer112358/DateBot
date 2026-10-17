@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 using CSharpFunctionalExtensions;
-using FluentValidation;
 
 namespace DateBot.Application.Parsing;
 
@@ -18,6 +17,8 @@ public sealed record ParsingRules(
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
 
+    public ImmutableArray<string> LikeHintMarkers { get; init; } = [];
+
     public static ParsingRules From(ParsingOptions options) => new(
         Clean(options.LikeMarkers),
         Clean(options.MutualMarkers),
@@ -26,7 +27,10 @@ public sealed record ParsingRules(
         Optional(options.InterestsPattern),
         Optional(options.UsernamePattern),
         Optional(options.PersonIdPattern),
-        options.UnknownMessages);
+        options.UnknownMessages)
+    {
+        LikeHintMarkers = Clean(options.LikeHintMarkers),
+    };
 
     private static ImmutableArray<string> Clean(IEnumerable<string> markers) =>
         [.. markers.Select(m => m.Trim()).Where(m => m.Length > 0)];

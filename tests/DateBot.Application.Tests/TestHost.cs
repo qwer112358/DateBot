@@ -32,6 +32,7 @@ internal sealed class TestHost : IAsyncDisposable
 
         services.AddSingleton(Store);
         services.AddSingleton<ITashdateClient>(Client);
+        services.AddSingleton<ITashdateApp>(App);
         services.AddSingleton<IOwnerNotifier>(Notifier);
         services.AddSingleton<IReplyGenerator>(Generator);
         services.AddSingleton<IClock>(Clock);
@@ -52,6 +53,8 @@ internal sealed class TestHost : IAsyncDisposable
 
     public FakeTashdateClient Client { get; } = new();
 
+    public FakeTashdateApp App { get; } = new();
+
     public FakeNotifier Notifier { get; } = new();
 
     public FakeReplyGenerator Generator { get; } = new();
@@ -70,8 +73,11 @@ internal sealed class TestHost : IAsyncDisposable
     public Task<Result<CatchUpReport, Error>> CatchUpAsync() =>
         Dispatcher.SendAsync<CatchUpHistoryCommand, CatchUpReport>(new CatchUpHistoryCommand(), CancellationToken.None);
 
-    public Task<Result<DraftDecision, Error>> DecideAsync(Guid matchId, bool approve) =>
-        Dispatcher.SendAsync<SendReplyCommand, DraftDecision>(new SendReplyCommand(matchId, approve), CancellationToken.None);
+    public Task<Result<DraftDecision, Error>> DecideAsync(Guid matchId, bool approve, Domain.Matches.MessageChannel? channel = null) =>
+        Dispatcher.SendAsync<SendReplyCommand, DraftDecision>(new SendReplyCommand(matchId, approve, channel), CancellationToken.None);
+
+    public Task<Result<AppSyncReport, Error>> SyncAppAsync() =>
+        Dispatcher.SendAsync<SyncAppLikesCommand, AppSyncReport>(new SyncAppLikesCommand(), CancellationToken.None);
 
     public Task<Result<Unit, Error>> OwnerAsync(OwnerRequest request) =>
         Dispatcher.SendAsync<HandleOwnerRequestCommand, Unit>(new HandleOwnerRequestCommand(request), CancellationToken.None);

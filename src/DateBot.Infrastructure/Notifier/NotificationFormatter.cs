@@ -14,23 +14,26 @@ namespace DateBot.Infrastructure.Notifier;
 public static class NotificationFormatter
 {
     public const string SendPrefix = "send:";
+    public const string SendToTelegramPrefix = "send:tg:";
+    public const string SendToAppPrefix = "send:app:";
+    public const string SendViaBotPrefix = "send:bot:";
     public const string SkipPrefix = "skip:";
     public const string ForgetPrefix = "forget:";
 
     public static FormattedNotification Format(OwnerNotification notification) => notification switch
     {
         LikeHandledNotification n => Text(
-            $"❤️ <b>Лайк обработан</b>\n{Header(n.Profile)}\nСделано: {(n.LikedBack ? "лайк в ответ + сообщение" : "сообщение")}\n\n«{E(n.Message.Value)}»",
+            $"❤️ <b>Лайк обработан</b>\n{Header(n.Profile)}\nСделано: {(n.LikedBack ? "лайк в ответ + сообщение" : "сообщение")} {Where(n.Channel)}\n\n«{E(n.Message.Value)}»",
             Forget(n.MatchId)),
         LikedBackNotification n => Text(
             $"❤️ <b>Лайк в ответ</b>\n{Header(n.Profile)}\nСообщение уйдёт после взаимной симпатии.",
             Forget(n.MatchId)),
         MutualHandledNotification n => Text(
-            $"💞 <b>Взаимная симпатия</b>\n{Header(n.Profile)}\nОтправлено: «{E(n.Message.Value)}»",
+            $"💞 <b>Взаимная симпатия</b>\n{Header(n.Profile)}\nОтправлено {Where(n.Channel)}: «{E(n.Message.Value)}»",
             Forget(n.MatchId)),
         DraftReadyNotification n => new FormattedNotification(
-            $"✍️ <b>Черновик</b> ({(n.Kind == MatchKind.Mutual ? "взаимная симпатия" : "вас лайкнули")})\n{Header(n.Profile)}{Details(n.Profile)}\n\n<b>Черновик:</b>\n«{E(n.Draft.Value)}»",
-            [new InlineAction("✅ Отправить", SendPrefix + n.MatchId), new InlineAction("⏭ Пропустить", SkipPrefix + n.MatchId)],
+            $"✍️ <b>Черновик</b> ({DraftReason(n)})\n{Header(n.Profile)}{Contacts(n.Profile)}{Details(n.Profile)}\n\n<b>Черновик:</b>\n«{E(n.Draft.Value)}»\n\nКуда отправить?",
+            [.. n.Channels.Select(channel => SendButton(channel, n.MatchId)), new InlineAction("⏭ Пропустить", SkipPrefix + n.MatchId)],
             n.Profile.Photo),
         ParseFailedNotification n => Text(
             $"⚠️ <b>Не удалось разобрать сообщение бота</b> #{n.BotMessageId}\nПричина: {E(n.Reason)}\n\n<pre>{E(Truncate(n.RawText, 2500))}</pre>"),
@@ -50,6 +53,30 @@ public static class NotificationFormatter
         new(html, [.. buttons], Maybe<PhotoFileId>.None);
 
     private static InlineAction Forget(MatchId id) => new("🗑 Забыть", ForgetPrefix + id);
+
+    private static InlineAction SendButton(MessageChannel channel, MatchId id) => channel switch
+    {
+        MessageChannel.Telegram => new("✈️ В Telegram", SendToTelegramPrefix + id),
+        MessageChannel.App => new("💬 В приложении", SendToAppPrefix + id),
+        _ => new("🤖 Через бота", SendViaBotPrefix + id),
+    };
+
+    private static string Where(MessageChannel channel) => channel switch
+    {
+        MessageChannel.Telegram => "в личку Telegram",
+        MessageChannel.App => "в чат приложения",
+        _ => "через бота",
+    };
+
+    private static string DraftReason(DraftReadyNotification n) => (n.Mutual, n.Kind) switch
+    {
+        (true, MatchKind.LikedMe) => "мэтч: вы ответили на лайк",
+        (true, _) => "мэтч",
+        _ => "вас лайкнули",
+    };
+
+    private static string Contacts(Profile profile) =>
+        profile.Username.HasValue ? $"\nTelegram: {E(profile.Username.GetValueOrThrow().ToString())}" : string.Empty;
 
     private static string Header(Profile profile)
     {
@@ -78,6 +105,11 @@ public static class NotificationFormatter
         if (!profile.Interests.IsEmpty)
         {
             text.Append("\nИнтересы: ").Append(E(profile.Interests.ToString()));
+        }
+
+        foreach (var fact in profile.Facts.Items)
+        {
+            text.Append('\n').Append(E(fact));
         }
 
         return text.ToString();

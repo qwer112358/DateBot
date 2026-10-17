@@ -1,3 +1,6 @@
+using DateBot.Application.MiniApp;
+using DateBot.Domain.Matches;
+
 namespace DateBot.Application.Processing;
 
 public sealed class ProcessingOptions
@@ -9,6 +12,14 @@ public sealed class ProcessingOptions
     public LikedMeMessagePolicy LikedMeMessage { get; init; } = LikedMeMessagePolicy.AfterLikeBack;
 
     public MessageRouteKind MutualRoute { get; init; } = MessageRouteKind.DirectToUser;
+
+    /// <summary>
+    /// Channels a message may go through; empty = all. Tashdate's bot does not forward text, so its config lists
+    /// only Telegram and App.
+    /// </summary>
+    public MessageChannel[] Channels { get; init; } = [];
+
+    public MiniAppOptions MiniApp { get; init; } = new();
 
     /// <summary>Labels of the like-back button, matched by "contains".</summary>
     public string[] LikeBackButtons { get; init; } = [];
@@ -40,4 +51,6 @@ public sealed class ProcessingOptions
     public int RetentionDays { get; init; }
 
     public FilterOptions Filters { get; init; } = new();
+
+    public bool IsEnabled(MessageChannel channel) => Channels.Length == 0 || Channels.Contains(channel);
 }

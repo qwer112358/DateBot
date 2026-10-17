@@ -18,6 +18,10 @@ public sealed class ProcessingOptionsValidator : AbstractValidator<ProcessingOpt
         RuleFor(o => o.PollInterval).GreaterThan(TimeSpan.Zero);
         RuleFor(o => o.RetentionDays).GreaterThanOrEqualTo(0);
         RuleFor(o => o.FirstRunBackfill).InclusiveBetween(TimeSpan.Zero, TimeSpan.FromDays(30));
+        RuleForEach(o => o.Channels).IsInEnum();
+        RuleFor(o => o.MiniApp.PollInterval).GreaterThanOrEqualTo(TimeSpan.FromMinutes(1))
+            .WithMessage("Processing:MiniApp:PollInterval — не чаще раза в минуту");
+        RuleFor(o => o.MiniApp.MaxLikesPerPass).InclusiveBetween(1, 50);
         RuleFor(o => o.Filters.MinAge).InclusiveBetween(18, 99);
         RuleFor(o => o.Filters.MaxAge).GreaterThanOrEqualTo(o => o.Filters.MinAge);
     }

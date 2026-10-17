@@ -41,6 +41,7 @@ public static class PromptBuilder
             .AppendLine(profile.City.HasValue ? $"Город: {Sanitize(profile.City.GetValueOrThrow().Value)}" : "Город: не указан")
             .AppendLine(profile.Bio.HasValue ? $"О себе: {Sanitize(profile.Bio.GetValueOrThrow().Value)}" : "О себе: пусто")
             .AppendLine(profile.Interests.IsEmpty ? "Интересы: не указаны" : $"Интересы: {Sanitize(profile.Interests.ToString())}")
+            .Append(Facts(profile))
             .AppendLine("</profile>")
             .AppendLine()
             .Append("Напиши первое сообщение этому человеку по правилам выше.")
@@ -58,6 +59,9 @@ public static class PromptBuilder
 
     /// <summary>Stops the profile text from closing or opening tags in the prompt.</summary>
     public static string Sanitize(string value) => value.Replace('<', '‹').Replace('>', '›');
+
+    private static string Facts(Profile profile) =>
+        string.Concat(profile.Facts.Items.Select(fact => Sanitize(fact) + Environment.NewLine));
 
     private static string Optional(string label, string value) =>
         string.IsNullOrWhiteSpace(value) ? $"- {label}: не указано" : $"- {label}: {value.Trim()}";

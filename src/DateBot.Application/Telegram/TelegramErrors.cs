@@ -1,3 +1,4 @@
+using DateBot.Application.Abstractions;
 using DateBot.Domain.Common;
 using DateBot.Domain.Matches;
 using DateBot.Domain.Shared;
@@ -18,15 +19,16 @@ public static class TelegramErrors
 
     public const string ButtonNotFoundCode = "telegram.button_not_found";
 
-    public const string SendOutcomeUnknownCode = "telegram.send_outcome_unknown";
+    /// <summary>The bot has no Mini App button to open, so the app cannot be signed into.</summary>
+    public static readonly Error WebAppNotFound = Error.NotFound(
+        "telegram.web_app_not_found", "У бота не найдена кнопка Mini App; укажите адрес в MiniAppClient:Url");
 
     /// <summary>Retryable: the request did not reach Telegram, nothing was sent.</summary>
     public static Error Unavailable(string details) => Error.External(
         "telegram.unavailable", $"Telegram недоступен: {details}");
 
     /// <summary>Not retryable: the connection broke after the text was handed over, it may already be delivered.</summary>
-    public static Error SendOutcomeUnknown(string details) => Error.Conflict(
-        SendOutcomeUnknownCode, $"Связь оборвалась во время отправки, неизвестно, дошло ли сообщение: {details}");
+    public static Error SendOutcomeUnknown(string details) => DeliveryErrors.OutcomeUnknown(details);
 
     /// <summary>Plain text to the bot goes to the profile it shows now; the anchor is no longer that profile.</summary>
     public static Error StaleAnchor(BotMessageId id) => Error.Conflict(

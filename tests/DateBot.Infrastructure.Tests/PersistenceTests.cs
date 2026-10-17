@@ -59,7 +59,7 @@ public sealed class PersistenceTests : IAsyncLifetime
             (await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default)).IsSuccess.Should().BeTrue();
             _events.Received.Should().ContainSingle().Which.Should().BeOfType<LikeReceived>();
 
-            match.StartLikeBack(Now).Bind(() => match.CompleteLikeBack(Now)).Bind(() => match.StartMessage(Reply, Now));
+            match.StartLikeBack(Now).Bind(() => match.CompleteLikeBack(Now)).Bind(() => match.StartMessage(Reply, MessageChannel.Telegram, Now));
             (await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default)).IsSuccess.Should().BeTrue();
         });
 
@@ -262,9 +262,9 @@ public sealed class PersistenceTests : IAsyncLifetime
         await InScopeAsync(async sp =>
         {
             var repository = sp.GetRequiredService<IMatchRepository>();
-            (await repository.IsForgottenAsync(forgotten.PersonId, default)).Value.Should().BeTrue();
-            (await repository.IsForgottenAsync(expired.PersonId, default)).Value.Should().BeTrue();
-            (await repository.IsForgottenAsync(TashdateUserId.Create("fp:someone-else").Value, default)).Value.Should().BeFalse();
+            (await repository.IsForgottenAsync([forgotten.PersonId.Value], default)).Value.Should().BeTrue();
+            (await repository.IsForgottenAsync([expired.PersonId.Value], default)).Value.Should().BeTrue();
+            (await repository.IsForgottenAsync(["fp:someone-else"], default)).Value.Should().BeFalse();
             (await sp.GetRequiredService<DateBotDbContext>().Matches.CountAsync()).Should().Be(0);
         });
     }
@@ -287,7 +287,104 @@ public sealed class PersistenceTests : IAsyncLifetime
         });
     }
 
+    [Fact]
+    public async Task Like_from_the_app_round_trips_with_its_contacts_facts_and_channel()
+    {
+        var match = AppLike(501);
+        match.StartLikeBack(Now)
+            .Bind(() => match.RevealContact(Maybe.From(ContactUsername.Create("Lola_Tash").Value)))
+            .Bind(() => match.ConfirmMutual())
+            .Bind(() => match.CompleteLikeBack(Now))
+            .Bind(() => match.StartMessage(Reply, MessageChannel.App, Now));
+        await InScopeAsync(async sp =>
+        {
+            await sp.GetRequiredService<IMatchRepository>().AddAsync(match, default);
+            (await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default)).IsSuccess.Should().BeTrue();
+        });
+
+        await InScopeAsync(async sp =>
+        {
+            var loaded = (await sp.GetRequiredService<IMatchRepository>().FindByIdAsync(match.Id, default)).Value.GetValueOrThrow();
+
+            loaded.SourceMessageId.HasNoValue.Should().BeTrue();
+            loaded.IsMutual.Should().BeTrue();
+            loaded.Profile.Should().Be(match.Profile);
+            loaded.Profile.Facts.Items.Should().Equal("Рост: 165 см", "Питомцы: кошка");
+            loaded.PendingAction.GetValueOrThrow().Channel.Should().Be(Maybe.From(MessageChannel.App));
+        });
+    }
+
+    [Fact]
+    public async Task Person_is_found_by_username_in_any_case_or_by_app_id()
+    {
+        var match = AppLike(501);
+        match.RevealContact(Maybe.From(ContactUsername.Create("Lola_Tash").Value));
+        await InScopeAsync(async sp =>
+        {
+            await sp.GetRequiredService<IMatchRepository>().AddAsync(match, default);
+            await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default);
+        });
+
+        await InScopeAsync(async sp =>
+        {
+            var repository = sp.GetRequiredService<IMatchRepository>();
+            var byUsername = await repository.FindByContactAsync(Maybe.From(ContactUsername.Create("lola_tash").Value), Maybe<AppProfileId>.None, default);
+            var byApp = await repository.FindByContactAsync(Maybe<ContactUsername>.None, Maybe.From(AppProfileId.Create(501).Value), default);
+            var nobody = await repository.FindByContactAsync(Maybe<ContactUsername>.None, Maybe<AppProfileId>.None, default);
+
+            byUsername.Value.GetValueOrThrow().Id.Should().Be(match.Id);
+            byApp.Value.GetValueOrThrow().Id.Should().Be(match.Id);
+            nobody.Value.HasNoValue.Should().BeTrue();
+        });
+    }
+
+    [Fact]
+    public async Task Forgetting_leaves_a_tombstone_for_every_key_of_the_person()
+    {
+        var match = AppLike(501);
+        await InScopeAsync(async sp =>
+        {
+            await sp.GetRequiredService<IMatchRepository>().AddAsync(match, default);
+            await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default);
+        });
+
+        await InScopeAsync(async sp =>
+        {
+            var repository = sp.GetRequiredService<IMatchRepository>();
+            var loaded = (await repository.FindByIdAsync(match.Id, default)).Value.GetValueOrThrow();
+            loaded.RevealContact(Maybe.From(ContactUsername.Create("lola_tash").Value));
+            await repository.RemoveAsync(loaded, default);
+            (await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default)).IsSuccess.Should().BeTrue();
+        });
+
+        await InScopeAsync(async sp =>
+        {
+            var repository = sp.GetRequiredService<IMatchRepository>();
+            (await repository.IsForgottenAsync(["app:501"], default)).Value.Should().BeTrue();
+            (await repository.IsForgottenAsync(["tg:lola_tash"], default)).Value.Should().BeTrue("the username learned in the last scope counts too");
+        });
+    }
+
     private static readonly DateTimeOffset Now = new(2026, 10, 17, 12, 0, 0, TimeSpan.Zero);
+
+    private static Match AppLike(long appId) =>
+        Match.Create(new MatchInput(
+            MatchId.Create(Guid.NewGuid()).Value,
+            TashdateUserId.Create(PersonKeys.ForApp(appId)).Value,
+            Maybe<BotMessageId>.None,
+            MatchKind.LikedMe,
+            Profile.Create(new ProfileInput(
+                ProfileName.Create("Лола").Value,
+                Maybe.From(Age.Create(23).Value),
+                Maybe.From(City.Create("Ташкент").Value),
+                Maybe<Bio>.None,
+                Interests.Create(["Кофе"]).Value,
+                Maybe.From(PhotoFileId.Create("app:p501.jpg").Value),
+                Maybe<ContactUsername>.None,
+                "Лола, 23, Ташкент",
+                ProfileFacts.Create(["Рост: 165 см", "Питомцы: кошка"]).Value,
+                Maybe.From(AppProfileId.Create(appId).Value))).Value,
+            Now)).Value;
 
     private static readonly ReplyText Reply = ReplyText.Create("Привет! Вижу, ты тоже любишь горы.").Value;
 

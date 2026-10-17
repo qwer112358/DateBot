@@ -106,4 +106,30 @@ public sealed class ValueObjectTests
 
     [Fact]
     public void TashdateUserId_rejects_whitespace() => TashdateUserId.Create("a b").IsFailure.Should().BeTrue();
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void AppProfileId_must_be_positive(long value) => AppProfileId.Create(value).IsFailure.Should().BeTrue();
+
+    [Fact]
+    public void ProfileFacts_are_trimmed_and_deduplicated() =>
+        ProfileFacts.Create(["  Рост:  172 см ", "рост: 172 см", ""]).Value.Items.Should().Equal("Рост: 172 см");
+
+    [Fact]
+    public void ProfileFacts_reject_too_many_and_too_long()
+    {
+        ProfileFacts.Create(Enumerable.Range(0, ProfileFacts.MaxCount + 1).Select(i => $"f{i}")).IsFailure.Should().BeTrue();
+        ProfileFacts.Create([new string('x', ProfileFacts.MaxItemLength + 1)]).IsFailure.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("photo:123")]
+    [InlineData("app:a1b2-c3_d4.webp")]
+    public void PhotoFileId_accepts_telegram_and_app_photos(string value) => PhotoFileId.Create(value).IsSuccess.Should().BeTrue();
+
+    [Theory]
+    [InlineData("app:../x/y.jpg")]
+    [InlineData("app:a b.jpg")]
+    public void PhotoFileId_rejects_paths_and_spaces(string value) => PhotoFileId.Create(value).IsFailure.Should().BeTrue();
 }

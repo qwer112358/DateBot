@@ -38,12 +38,16 @@ public sealed class ReplyComposer(
             .OnFailureCompensate(error => Template(profile, language, error.Message));
     }
 
+    /// <summary>
+    /// The bio is the person's own words, so it decides first; interests and city may be labels of the app
+    /// in the owner's language and are used only when the bio says nothing.
+    /// </summary>
     public static Maybe<ReplyLanguage> ProfileLanguage(Profile profile) =>
-        LanguageDetector.Detect(string.Join(
-            " ",
-            profile.Bio.Map(b => b.Value).GetValueOrDefault(string.Empty),
-            profile.Interests.ToString(),
-            profile.City.Map(c => c.Value).GetValueOrDefault(string.Empty)));
+        profile.Bio.Bind(bio => LanguageDetector.Detect(bio.Value))
+            .Or(() => LanguageDetector.Detect(string.Join(
+                " ",
+                profile.Interests.ToString(),
+                profile.City.Map(c => c.Value).GetValueOrDefault(string.Empty))));
 
     private static string Clean(string text) => text.Trim().Trim('"', '«', '»', '“', '”').Trim();
 

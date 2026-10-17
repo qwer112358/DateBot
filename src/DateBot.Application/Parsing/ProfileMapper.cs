@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using CSharpFunctionalExtensions;
+using DateBot.Application.MiniApp;
 using DateBot.Domain.Common;
 using DateBot.Domain.Matches;
 
@@ -10,6 +11,7 @@ namespace DateBot.Application.Parsing;
 public static class ProfileMapper
 {
     private const int FingerprintBioPrefix = 100;
+    private const string AppPhotoPrefix = "app:";
 
     public static Result<MappedProfile, Error> ToDomain(ParsedProfile parsed, string rawText)
     {
@@ -18,30 +20,59 @@ public static class ProfileMapper
         var city = Optional(parsed.City, City.Create);
         var bio = Optional(parsed.Bio, Bio.Create);
         var interests = Interests.Create(parsed.Interests);
+        var facts = ProfileFacts.Create(parsed.Facts.IsDefault ? [] : parsed.Facts);
         var photo = Optional(parsed.PhotoId, PhotoFileId.Create);
         var username = Optional(parsed.Username, ContactUsername.Create);
+        var appId = Optional(parsed.AppId, AppProfileId.Create);
         var personId = TashdateUserId.Create(PersonKey(parsed));
 
         Error[] errors =
         [
-            .. ErrorsOf(name), .. ErrorsOf(age), .. ErrorsOf(city), .. ErrorsOf(bio),
-            .. ErrorsOf(interests), .. ErrorsOf(photo), .. ErrorsOf(username), .. ErrorsOf(personId),
+            .. ErrorsOf(name), .. ErrorsOf(age), .. ErrorsOf(city), .. ErrorsOf(bio), .. ErrorsOf(interests),
+            .. ErrorsOf(facts), .. ErrorsOf(photo), .. ErrorsOf(username), .. ErrorsOf(appId), .. ErrorsOf(personId),
         ];
 
         return errors.Length > 0
             ? Result.Failure<MappedProfile, Error>(Combine(errors))
             : Profile
-                .Create(new ProfileInput(name.Value, age.Value, city.Value, bio.Value, interests.Value, photo.Value, username.Value, rawText))
+                .Create(new ProfileInput(
+                    name.Value, age.Value, city.Value, bio.Value, interests.Value, photo.Value, username.Value, rawText, facts.Value, appId.Value))
                 .Map(profile => new MappedProfile(personId.Value, profile));
     }
 
+    /// <summary>A profile from the app: the app id is its identity, the photo is an app file.</summary>
+    public static Result<MappedProfile, Error> FromApp(AppProfile profile) =>
+        ToDomain(
+            new ParsedProfile(
+                profile.Name,
+                profile.Age,
+                profile.City,
+                profile.Bio,
+                profile.Interests,
+                // An odd file name must not cost the whole profile: without the photo the message is still written.
+                profile.PhotoFile.Map(file => AppPhotoPrefix + file).Where(id => PhotoFileId.Create(id).IsSuccess),
+                Maybe<string>.None,
+                Maybe<string>.None,
+                profile.Facts,
+                profile.Id),
+            profile.RawText);
+
+    public static bool IsAppPhoto(PhotoFileId photo) => photo.Value.StartsWith(AppPhotoPrefix, StringComparison.Ordinal);
+
+    public static string AppPhotoFile(PhotoFileId photo) => photo.Value[AppPhotoPrefix.Length..];
+
     /// <summary>
-    /// The bot id when the rules extract one; otherwise a fingerprint of name, age, city and the start of the
-    /// first bio line, so that "liked you" and "mutual like" about the same person map to the same match
-    /// even when the two notifications have different trailing lines.
+    /// The app id when the profile came from the app; the bot id when the rules extract one; otherwise a fingerprint
+    /// of name, age, city and the start of the first bio line, so that "liked you" and "mutual like" about the same
+    /// person map to the same match even when the two notifications have different trailing lines.
     /// </summary>
     public static string PersonKey(ParsedProfile parsed)
     {
+        if (parsed.AppId.HasValue)
+        {
+            return PersonKeys.ForApp(parsed.AppId.GetValueOrThrow());
+        }
+
         if (parsed.PersonId.HasValue)
         {
             return "id:" + parsed.PersonId.GetValueOrThrow().Trim();

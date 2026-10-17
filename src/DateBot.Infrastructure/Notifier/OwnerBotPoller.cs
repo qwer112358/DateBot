@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using CSharpFunctionalExtensions;
 using DateBot.Application.UseCases;
 using DateBot.Domain.Common;
+using DateBot.Domain.Matches;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
@@ -70,7 +71,10 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
     }
 
     public static Maybe<OwnerRequest> ParseCallback(long chatId, long userId, string data) =>
-        TryId(data, NotificationFormatter.SendPrefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: true))
+        Send(data, NotificationFormatter.SendToTelegramPrefix, MessageChannel.Telegram, chatId, userId)
+            .Or(() => Send(data, NotificationFormatter.SendToAppPrefix, MessageChannel.App, chatId, userId))
+            .Or(() => Send(data, NotificationFormatter.SendViaBotPrefix, MessageChannel.BotChat, chatId, userId))
+            .Or(() => TryId(data, NotificationFormatter.SendPrefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: true)))
             .Or(() => TryId(data, NotificationFormatter.SkipPrefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: false)))
             .Or(() => TryId(data, NotificationFormatter.ForgetPrefix).Map(id => (OwnerRequest)new ForgetRequest(chatId, userId, id)));
 
@@ -89,6 +93,9 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
 
         return ParseCallback(message.Chat.Id, query.From.Id, data);
     }
+
+    private static Maybe<OwnerRequest> Send(string data, string prefix, MessageChannel channel, long chatId, long userId) =>
+        TryId(data, prefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: true, channel));
 
     private static Maybe<Guid> TryId(string data, string prefix) =>
         data.StartsWith(prefix, StringComparison.Ordinal) && Guid.TryParseExact(data[prefix.Length..], "N", out var id)

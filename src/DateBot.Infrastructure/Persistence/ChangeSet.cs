@@ -15,6 +15,7 @@ public sealed class ChangeSet
     private readonly Dictionary<Guid, MatchEntry> _matches = [];
     private readonly Dictionary<long, InboxEntry> _inbox = [];
     private readonly List<MatchRecord> _removedMatches = [];
+    private readonly HashSet<string> _forgottenKeys = new(StringComparer.Ordinal);
     private readonly List<long> _removedInbox = [];
 
     public SyncCursor? Cursor { get; private set; }
@@ -27,6 +28,9 @@ public sealed class ChangeSet
 
     public IReadOnlyList<MatchRecord> RemovedMatches => _removedMatches;
 
+    /// <summary>Identity keys of removed people, taken from the aggregate (it may know a contact the row does not yet).</summary>
+    public IReadOnlyCollection<string> ForgottenKeys => _forgottenKeys;
+
     public IReadOnlyList<long> RemovedInbox => _removedInbox;
 
     public IEnumerable<IAggregateRoot> Aggregates => _matches.Values.Select(e => (IAggregateRoot)e.Match);
@@ -36,6 +40,12 @@ public sealed class ChangeSet
     public Match? FindMatchByPerson(string personId) =>
         _matches.Values.FirstOrDefault(e => e.Match.PersonId.Value == personId)?.Match;
 
+    public Match? FindMatchByContact(string? username, long? appId) =>
+        _matches.Values.FirstOrDefault(e =>
+            (username is not null && e.Match.Profile.Username.HasValue
+                && string.Equals(e.Match.Profile.Username.GetValueOrThrow().Value, username, StringComparison.OrdinalIgnoreCase))
+            || (appId is not null && e.Match.Profile.AppId.HasValue && e.Match.Profile.AppId.GetValueOrThrow().Value == appId))?.Match;
+
     public void Track(Match match, MatchRecord? record) => _matches[match.Id.Value] = new MatchEntry(match) { Record = record };
 
     public void Remove(Match match)
@@ -44,6 +54,8 @@ public sealed class ChangeSet
         {
             _removedMatches.Add(entry.Record);
         }
+
+        _forgottenKeys.UnionWith(match.IdentityKeys);
     }
 
     public InboxMessage? FindInbox(long id) => _inbox.TryGetValue(id, out var entry) ? entry.Message : null;
@@ -67,6 +79,7 @@ public sealed class ChangeSet
     public void MarkCommitted()
     {
         _removedMatches.Clear();
+        _forgottenKeys.Clear();
         _removedInbox.Clear();
         Cursor = null;
         Control = null;

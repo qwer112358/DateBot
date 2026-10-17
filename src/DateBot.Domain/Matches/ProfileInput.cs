@@ -10,4 +10,6 @@ public sealed record ProfileInput(
     Interests Interests,
     Maybe<PhotoFileId> Photo,
     Maybe<ContactUsername> Username,
-    string RawText);
+    string RawText,
+    ProfileFacts? Facts = null,
+    Maybe<AppProfileId> AppId = default);

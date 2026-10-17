@@ -4,6 +4,7 @@ using DateBot.Application.Notifications;
 using DateBot.Application.Ports;
 using DateBot.Application.Processing;
 using DateBot.Domain.Common;
+using DateBot.Domain.Matches;
 using Microsoft.Extensions.Logging;
 
 namespace DateBot.Application.UseCases;
@@ -49,13 +50,22 @@ internal sealed class HandleOwnerRequestHandler(
                 .SendAsync<GetStatusQuery, StatusReport>(new GetStatusQuery(), ct)
                 .Map(report => (OwnerNotification)new StatusNotification(report)),
             DraftDecisionRequest decision => dispatcher
-                .SendAsync<SendReplyCommand, DraftDecision>(new SendReplyCommand(decision.MatchId, decision.Approve), ct)
-                .Map(result => (OwnerNotification)new TextNotification(result == DraftDecision.Sent ? "Отправлено." : "Пропущено.")),
+                .SendAsync<SendReplyCommand, DraftDecision>(new SendReplyCommand(decision.MatchId, decision.Approve, decision.Channel), ct)
+                .Map(result => (OwnerNotification)new TextNotification(DecisionAnswer(result, decision.Channel))),
             ForgetRequest forget => dispatcher
                 .SendAsync<ForgetMatchCommand, Unit>(new ForgetMatchCommand(forget.MatchId), ct)
                 .Map(_ => (OwnerNotification)new TextNotification("Данные об этом человеке удалены.")),
             _ => Task.FromResult(Answer(Help)),
         };
+
+    private static string DecisionAnswer(DraftDecision decision, MessageChannel? channel) => (decision, channel) switch
+    {
+        (DraftDecision.Skipped, _) => "Пропущено.",
+        (_, MessageChannel.Telegram) => "Отправлено в личку Telegram.",
+        (_, MessageChannel.App) => "Отправлено в чат приложения.",
+        (_, MessageChannel.BotChat) => "Отправлено через бота.",
+        _ => "Отправлено.",
+    };
 
     private static string StartAnswer(ControlState before) =>
         before.OwnerChatId.HasNoValue ? "Готово: уведомления будут приходить сюда. " + Help

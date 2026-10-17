@@ -19,11 +19,18 @@ internal sealed class NotifyOwner(IOwnerNotifier notifier, IOptions<ProcessingOp
 
     private Maybe<OwnerNotification> ToNotification(IDomainEvent domainEvent) => domainEvent switch
     {
-        MessageSent { Kind: MatchKind.LikedMe } sent => new LikeHandledNotification(sent.MatchId, sent.Profile, sent.LikedBack, sent.Text),
-        MessageSent sent => new MutualHandledNotification(sent.MatchId, sent.Profile, sent.Text),
-        LikeBackSent liked when options.Value.LikedMeMessage == LikedMeMessagePolicy.OnMutual =>
+        MessageSent { Kind: MatchKind.LikedMe } sent =>
+            new LikeHandledNotification(sent.MatchId, sent.Profile, sent.LikedBack, sent.Text, sent.Channel),
+        MessageSent sent => new MutualHandledNotification(sent.MatchId, sent.Profile, sent.Text, sent.Channel),
+        LikeBackSent { Mutual: false } liked when options.Value.LikedMeMessage == LikedMeMessagePolicy.OnMutual =>
             new LikedBackNotification(liked.MatchId, liked.Profile),
-        ReplyDrafted drafted => new DraftReadyNotification(drafted.MatchId, drafted.Kind, drafted.Profile, drafted.Text),
+        ReplyDrafted drafted => new DraftReadyNotification(
+            drafted.MatchId,
+            drafted.Kind,
+            drafted.Profile,
+            drafted.Text,
+            drafted.Mutual,
+            MessageRouter.Available(drafted.Profile, drafted.Mutual, drafted.Anchor, options.Value)),
         ProcessingFailed failed => new ActionFailedNotification(failed.MatchId, failed.Profile, failed.Reason),
         _ => Maybe<OwnerNotification>.None,
     };

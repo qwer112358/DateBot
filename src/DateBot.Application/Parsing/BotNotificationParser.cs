@@ -22,6 +22,11 @@ public static class BotNotificationParser
             return new IgnoredNotification(message, "Служебное сообщение бота");
         }
 
+        if (ContainsAny(text, rules.LikeHintMarkers))
+        {
+            return new LikeHintNotification(message);
+        }
+
         var kind = DetectKind(text, rules);
         if (kind.HasNoValue)
         {

@@ -1,6 +1,8 @@
+using DateBot.Application.MiniApp;
 using DateBot.Application.Parsing;
 using DateBot.Application.Processing;
 using DateBot.Application.Replies;
+using DateBot.Domain.Matches;
 
 namespace DateBot.Application.Tests;
 
@@ -29,7 +31,7 @@ internal static class TestOptions
     {
         LikeMarkers = ["понравил", "лайкнул", "yoqtir", "liked you"],
         MutualMarkers = ["у вас мэтч", "мэтч с", "взаимн", "o'zaro", "o‘zaro", "mutual", "it's a match"],
-        IgnoreMarkers = ["Тобой интересуются", "тебя лайкнули"],
+        LikeHintMarkers = ["Тобой интересуются", "тебя лайкнули"],
         ProfilePatterns = [@"мэтч с (?<name>[^!\n]{1,64})!", FullProfilePattern],
         InterestsPattern = @"^(?:Интересы|Увлечения|Qiziqishlar|Interests)\s*:\s*(?<interests>.+)$",
         UsernamePattern = UsernamePattern,
@@ -57,6 +59,21 @@ internal static class TestOptions
             MaxActionsPerHour = 20,
             HistoryBatchSize = 2,
         };
+
+    /// <summary>The shipped setup for Tashdate: drafts wait for you, who picks Telegram or the in-app chat.</summary>
+    public static ProcessingOptions TashdateProcessing(bool miniApp = true, ProcessingMode mode = ProcessingMode.Confirm) => new()
+    {
+        Mode = mode,
+        LikedMeMessage = LikedMeMessagePolicy.AfterLikeBack,
+        MutualRoute = MessageRouteKind.DirectToUser,
+        Channels = [MessageChannel.Telegram, MessageChannel.App],
+        MiniApp = new MiniAppOptions { Enabled = miniApp, MaxLikesPerPass = 10 },
+        LikeBackButtons = ["❤"],
+        MinPause = TimeSpan.FromSeconds(5),
+        MaxPause = TimeSpan.FromSeconds(30),
+        MaxActionsPerHour = 20,
+        HistoryBatchSize = 10,
+    };
 
     public static ReplyOptions Replies(InvalidReplyPolicy policy = InvalidReplyPolicy.Template) => new()
     {

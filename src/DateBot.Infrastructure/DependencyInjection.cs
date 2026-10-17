@@ -1,6 +1,7 @@
 using Anthropic;
 using DateBot.Application.Ports;
 using DateBot.Infrastructure.Llm;
+using DateBot.Infrastructure.MiniApp;
 using DateBot.Infrastructure.Notifier;
 using DateBot.Infrastructure.Persistence;
 using DateBot.Infrastructure.Platform;
@@ -8,6 +9,7 @@ using DateBot.Infrastructure.Telegram;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DateBot.Infrastructure;
@@ -20,6 +22,7 @@ public static class DependencyInjection
         services.AddOptions<NotifierOptions>().Bind(configuration.GetSection(NotifierOptions.Section));
         services.AddOptions<AnthropicOptions>().Bind(configuration.GetSection(AnthropicOptions.Section));
         services.AddOptions<StorageOptions>().Bind(configuration.GetSection(StorageOptions.Section));
+        services.AddOptions<MiniAppClientOptions>().Bind(configuration.GetSection(MiniAppClientOptions.Section));
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IClock, SystemClock>();
@@ -41,6 +44,18 @@ public static class DependencyInjection
 
         services.AddSingleton<WTelegramTashdateClient>();
         services.AddSingleton<ITashdateClient>(sp => sp.GetRequiredService<WTelegramTashdateClient>());
+        services.AddSingleton<IWebAppLauncher>(sp => sp.GetRequiredService<WTelegramTashdateClient>());
+
+        services.AddSingleton(sp => new TashdateAppClient(
+            new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) })
+            {
+                Timeout = sp.GetRequiredService<IOptions<MiniAppClientOptions>>().Value.Timeout,
+            },
+            sp.GetRequiredService<IWebAppLauncher>(),
+            sp.GetRequiredService<IClock>(),
+            sp.GetRequiredService<IOptions<MiniAppClientOptions>>(),
+            sp.GetRequiredService<ILogger<TashdateAppClient>>()));
+        services.AddSingleton<ITashdateApp>(sp => sp.GetRequiredService<TashdateAppClient>());
 
         services.AddSingleton<NotifierBot>();
         services.AddSingleton<IOwnerNotifier, TelegramOwnerNotifier>();

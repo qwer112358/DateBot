@@ -1,4 +1,7 @@
+using System.Collections.Immutable;
 using CSharpFunctionalExtensions;
+using DateBot.Application.Abstractions;
+using DateBot.Application.Parsing;
 using DateBot.Application.Ports;
 using DateBot.Application.Processing;
 using DateBot.Application.Replies;
@@ -12,11 +15,14 @@ using Microsoft.Extensions.Options;
 namespace DateBot.Application.UseCases;
 
 /// <summary>
-/// Downloads the photo, writes the message (LLM or template), then either sends it or, in Confirm mode,
-/// keeps it as a draft for the owner. At most one auto-message per person is enforced by the aggregate.
+/// Completes the profile from the app, downloads the photo, writes the message (LLM or template), then either sends it
+/// through the preferred channel or, in Confirm mode, keeps it as a draft for the owner, who also picks the channel.
+/// At most one auto-message per person is enforced by the aggregate.
 /// </summary>
 public sealed class GenerateAndSendReply(
     ITashdateClient client,
+    ITashdateApp app,
+    EnrichFromApp enricher,
     ReplyComposer composer,
     IPhotoStore photos,
     IUnitOfWork unitOfWork,
@@ -26,56 +32,63 @@ public sealed class GenerateAndSendReply(
     IOptions<ReplyOptions> replies,
     ILogger<GenerateAndSendReply> logger)
 {
-    /// <param name="trigger">Kind of the notification that triggered the message.</param>
-    /// <param name="notificationId">That notification; the anchor for the ViaBot route.</param>
-    public Task<Result<ReplyOutcome, Error>> ExecuteAsync(Match match, MatchKind trigger, BotMessageId notificationId, CancellationToken ct)
+    /// <param name="anchor">The bot notification that triggered the message (bot-chat channel); none for an app like.</param>
+    public async Task<Result<ReplyOutcome, Error>> ExecuteAsync(Match match, Maybe<BotMessageId> anchor, CancellationToken ct)
     {
-        // A send left Pending by a crash may or may not have reached Telegram: never risk a second message.
+        // A send left Pending by a crash may or may not have reached the person: never risk a second message.
         if (match.PendingAction.HasValue && match.PendingAction.GetValueOrThrow().Type == ActionType.SendMessage)
         {
-            return Task.FromResult(Result.Failure<ReplyOutcome, Error>(MatchErrors.SendOutcomeUnknown));
+            return MatchErrors.SendOutcomeUnknown;
         }
 
-        if (!match.CanStartMessage)
+        if (!match.CanStartMessage || (!match.IsMutual && processing.Value.LikedMeMessage == LikedMeMessagePolicy.OnMutual))
         {
-            return Task.FromResult(Result.Success<ReplyOutcome, Error>(ReplyOutcome.NotNeeded));
+            return ReplyOutcome.NotNeeded;
         }
 
-        var route = MessageRouter.Choose(match.Profile, trigger == MatchKind.Mutual, notificationId, processing.Value);
-        return LoadPhotoAsync(match, ct)
+        await enricher.EnrichAsync(match, ct);
+        var channels = MessageRouter.Available(match, anchor, processing.Value);
+        if (channels.IsEmpty)
+        {
+            logger.LogInformation("No channel reaches {Name} yet (no match or no contact); the message waits", match.Profile.Name);
+            return ReplyOutcome.NotNeeded;
+        }
+
+        return await LoadPhotoAsync(match, ct)
             .Bind(photo => composer.ComposeAsync(match.Profile, photo, ct))
             .Bind(composed => ShouldDraft(composed)
-                ? DraftAsync(match, composed.Text, notificationId, ct)
-                : SendAsync(match, composed.Text, route, ct));
+                ? DraftAsync(match, composed.Text, anchor, ct)
+                : MessageRouter.Choose(match, anchor, processing.Value).Bind(route => SendAsync(match, composed.Text, route, ct)));
     }
 
     /// <summary>
-    /// The owner pressed "Send" on a draft: the message goes against the notification the draft answers.
-    /// A draft anchored to a later notification than the match's first one was triggered by the mutual like.
+    /// The owner pressed a channel button on a draft (or plain "Send": the preferred channel). The bot-chat channel
+    /// answers the notification the draft was made for.
     /// </summary>
-    public Task<Result<ReplyOutcome, Error>> SendDraftAsync(Match match, CancellationToken ct) =>
+    public Task<Result<ReplyOutcome, Error>> SendDraftAsync(Match match, Maybe<MessageChannel> channel, CancellationToken ct) =>
         match.DraftMessage
             .ToResult(MatchErrors.NoDraft)
-            .Bind(draft =>
-            {
-                var anchor = draft.Anchor.GetValueOrDefault(match.SourceMessageId);
-                var mutual = match.Kind == MatchKind.Mutual || anchor != match.SourceMessageId;
-                var route = MessageRouter.Choose(match.Profile, mutual, anchor, processing.Value);
-                return SendAsync(match, draft.Text.GetValueOrThrow(), route, ct);
-            });
+            .Bind(draft => channel.HasValue
+                ? MessageRouter.Route(channel.GetValueOrThrow(), match, draft.Anchor, processing.Value)
+                : MessageRouter.Choose(match, draft.Anchor, processing.Value))
+            .Bind(route => SendAsync(match, match.DraftMessage.GetValueOrThrow().Text.GetValueOrThrow(), route, ct));
+
+    /// <summary>Channels the owner can pick for this match's draft.</summary>
+    public ImmutableArray<MessageChannel> ChannelsFor(Match match) =>
+        MessageRouter.Available(match, match.DraftMessage.Bind(d => d.Anchor), processing.Value);
 
     private bool ShouldDraft(ComposedReply composed) =>
         processing.Value.Mode == ProcessingMode.Confirm
         || (composed.Rejection.HasValue && replies.Value.InvalidReplyPolicy == InvalidReplyPolicy.Confirm);
 
-    private Task<Result<ReplyOutcome, Error>> DraftAsync(Match match, ReplyText text, BotMessageId anchor, CancellationToken ct) =>
+    private Task<Result<ReplyOutcome, Error>> DraftAsync(Match match, ReplyText text, Maybe<BotMessageId> anchor, CancellationToken ct) =>
         match.DraftReply(text, anchor, clock.UtcNow)
             .Bind(() => unitOfWork.CommitAsync(ct))
             .Map(() => ReplyOutcome.Drafted);
 
     private Task<Result<ReplyOutcome, Error>> SendAsync(Match match, ReplyText text, MessageRoute route, CancellationToken ct) =>
         pacer.BeforeActionAsync(ct)
-            .Bind(() => match.StartMessage(text, clock.UtcNow))
+            .Bind(() => match.StartMessage(text, route.Channel, clock.UtcNow))
             .Bind(() => unitOfWork.CommitAsync(ct))
             .Bind(() => DeliverAsync(route, text, ct).TapError(error => ReleaseIfNotSentAsync(match, error, ct)))
             .Bind(() => match.CompleteMessage(clock.UtcNow))
@@ -86,6 +99,7 @@ public sealed class GenerateAndSendReply(
     private Task<UnitResult<Error>> DeliverAsync(MessageRoute route, ReplyText text, CancellationToken ct) => route switch
     {
         DirectRoute direct => client.SendToUserAsync(direct.Username, text, ct),
+        AppChatRoute chat => app.SendMessageAsync(chat.To, text, chat.ClientKey, ct),
         // Plain text goes to whatever profile the bot shows now, so it must still be the anchor.
         ViaBotRoute { ButtonLabels.IsDefaultOrEmpty: true } viaBot => client.EnsureLatestAsync(viaBot.Anchor, ct)
             .Bind(() => client.SendToBotAsync(text, ct)),
@@ -96,12 +110,13 @@ public sealed class GenerateAndSendReply(
     };
 
     /// <summary>
-    /// Telegram refused the send or it never left, so nothing went out: release the pending action for a later retry.
-    /// When the outcome is unknown the action stays Pending and the match fails: at most one message.
+    /// The channel refused the send or it never left, so nothing went out: release the pending action for a later
+    /// retry (an approved draft goes back to Draft). When the outcome is unknown the action stays Pending and the
+    /// match fails: at most one message.
     /// </summary>
     private async Task ReleaseIfNotSentAsync(Match match, Error error, CancellationToken ct)
     {
-        if (error.Code == TelegramErrors.SendOutcomeUnknownCode)
+        if (error.Code == DeliveryErrors.OutcomeUnknownCode)
         {
             logger.LogWarning("Send to {Name} may have been delivered, not retrying: {Error}", match.Profile.Name, error);
             return;
@@ -115,7 +130,7 @@ public sealed class GenerateAndSendReply(
         }
     }
 
-    /// <summary>Photo from local storage or downloaded from Telegram; problems with it never block the message.</summary>
+    /// <summary>Photo from local storage or downloaded from Telegram or the app; problems with it never block the message.</summary>
     private async Task<Result<Maybe<ProfilePhoto>, Error>> LoadPhotoAsync(Match match, CancellationToken ct)
     {
         if (!replies.Value.UsePhoto || match.Profile.Photo.HasNoValue)
@@ -127,16 +142,23 @@ public sealed class GenerateAndSendReply(
         var photo = await photos.LoadAsync(photoId, ct)
             .Bind(stored => stored.HasValue
                 ? Task.FromResult(Result.Success<Maybe<ProfilePhoto>, Error>(stored))
-                : DownloadAsync(match.SourceMessageId, photoId, ct));
+                : DownloadAsync(match, photoId, ct));
 
         return photo.IsSuccess ? photo : LogPhotoFailure(match, photo.Error);
     }
 
-    private Task<Result<Maybe<ProfilePhoto>, Error>> DownloadAsync(BotMessageId messageId, PhotoFileId photoId, CancellationToken ct) =>
-        client.DownloadPhotoAsync(messageId, ct)
-            .Tap(downloaded => downloaded.HasValue
-                ? photos.SaveAsync(photoId, downloaded.GetValueOrThrow(), ct)
-                : Task.CompletedTask);
+    private Task<Result<Maybe<ProfilePhoto>, Error>> DownloadAsync(Match match, PhotoFileId photoId, CancellationToken ct)
+    {
+        var download = ProfileMapper.IsAppPhoto(photoId)
+            ? processing.Value.MiniApp.Enabled ? app.DownloadPhotoAsync(photoId, ct) : NoPhoto()
+            : match.SourceMessageId.HasValue ? client.DownloadPhotoAsync(match.SourceMessageId.GetValueOrThrow(), ct) : NoPhoto();
+        return download.Tap(downloaded => downloaded.HasValue
+            ? photos.SaveAsync(photoId, downloaded.GetValueOrThrow(), ct)
+            : Task.CompletedTask);
+    }
+
+    private static Task<Result<Maybe<ProfilePhoto>, Error>> NoPhoto() =>
+        Task.FromResult(Result.Success<Maybe<ProfilePhoto>, Error>(Maybe<ProfilePhoto>.None));
 
     private Result<Maybe<ProfilePhoto>, Error> LogPhotoFailure(Match match, Error error)
     {

@@ -18,12 +18,18 @@ internal sealed class SendReplyHandler(
     public Task<Result<DraftDecision, Error>> HandleAsync(SendReplyCommand command, CancellationToken ct) =>
         MatchId.Create(command.MatchId)
             .Bind(id => matches.FindByIdAsync(id, ct).Bind(found => found.ToResult(MatchErrors.NotFound(id))))
-            .Bind(match => command.Approve ? SendAsync(match, ct) : SkipAsync(match, ct));
+            .Bind(match => command.Approve
+                ? SendAsync(match, command.Channel is { } channel ? channel : Maybe<MessageChannel>.None, ct)
+                : SkipAsync(match, ct));
 
-    private Task<Result<DraftDecision, Error>> SendAsync(Match match, CancellationToken ct) =>
-        reply.SendDraftAsync(match, ct)
+    /// <summary>
+    /// Only a send that may have gone out fails the match. Anything else left the draft unsent (pause, limit, the
+    /// person closed Telegram messages): the card comes again so you can retry or pick the other channel.
+    /// </summary>
+    private Task<Result<DraftDecision, Error>> SendAsync(Match match, Maybe<MessageChannel> channel, CancellationToken ct) =>
+        reply.SendDraftAsync(match, channel, ct)
             .Map(_ => DraftDecision.Sent)
-            .TapError(error => ErrorClassifier.IsRetryable(error) ? OfferDraftAgainAsync(match, ct) : FailAsync(match, error, ct));
+            .TapError(error => match.DraftMessage.HasValue ? OfferDraftAgainAsync(match, ct) : FailAsync(match, error, ct));
 
     private Task<Result<DraftDecision, Error>> SkipAsync(Match match, CancellationToken ct) =>
         match.SkipReply(clock.UtcNow)
@@ -31,16 +37,17 @@ internal sealed class SendReplyHandler(
             .Map(() => DraftDecision.Skipped);
 
     private Task FailAsync(Match match, Error error, CancellationToken ct) =>
-        match.Fail(error, clock.UtcNow).Bind(() => unitOfWork.CommitAsync(ct));
+        match.IsClosed ? Task.CompletedTask : match.Fail(error, clock.UtcNow).Bind(() => unitOfWork.CommitAsync(ct));
 
-    /// <summary>
-    /// The buttons of the old card were removed on press; a temporary failure (pause, hourly limit, FLOOD_WAIT)
-    /// would otherwise leave the draft without any way to send it.
-    /// </summary>
+    /// <summary>The buttons of the old card were removed on press; without a new card the draft could not be sent at all.</summary>
     private Task OfferDraftAgainAsync(Match match, CancellationToken ct) =>
-        match.DraftMessage.HasValue
-            ? notifier.NotifyAsync(
-                new DraftReadyNotification(match.Id, match.Kind, match.Profile, match.DraftMessage.GetValueOrThrow().Text.GetValueOrThrow()),
-                ct)
-            : Task.CompletedTask;
+        notifier.NotifyAsync(
+            new DraftReadyNotification(
+                match.Id,
+                match.Kind,
+                match.Profile,
+                match.DraftMessage.GetValueOrThrow().Text.GetValueOrThrow(),
+                match.IsMutual,
+                reply.ChannelsFor(match)),
+            ct);
 }

@@ -47,11 +47,11 @@ internal sealed class EfUnitOfWork(DateBotDbContext db, ChangeSet changes, IDoma
             }
         }
 
-        foreach (var removed in changes.RemovedMatches)
+        foreach (var key in changes.ForgottenKeys)
         {
-            if (await db.ForgottenPeople.FindAsync([removed.PersonId], ct) is null)
+            if (await db.ForgottenPeople.FindAsync([key], ct) is null)
             {
-                db.ForgottenPeople.Add(new ForgottenPersonRecord { PersonId = removed.PersonId, ForgottenAt = clock.UtcNow });
+                db.ForgottenPeople.Add(new ForgottenPersonRecord { PersonId = key, ForgottenAt = clock.UtcNow });
             }
         }
 

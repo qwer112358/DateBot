@@ -18,6 +18,12 @@ internal sealed class InMemoryRepositories(InMemoryStore store)
     public Task<Result<Maybe<Match>, Error>> FindByPersonAsync(TashdateUserId personId, CancellationToken ct) =>
         Ok(store.Matches.Values.TryFirst(m => m.PersonId == personId));
 
+    public Task<Result<Maybe<Match>, Error>> FindByContactAsync(Maybe<ContactUsername> username, Maybe<AppProfileId> appId, CancellationToken ct) =>
+        Ok(store.Matches.Values.TryFirst(m =>
+            (username.HasValue && m.Profile.Username.HasValue
+                && string.Equals(m.Profile.Username.GetValueOrThrow().Value, username.GetValueOrThrow().Value, StringComparison.OrdinalIgnoreCase))
+            || (appId.HasValue && m.Profile.AppId == appId)));
+
     public Task<UnitResult<Error>> AddAsync(Match match, CancellationToken ct)
     {
         store.Matches[match.Id.Value] = match;
@@ -27,12 +33,12 @@ internal sealed class InMemoryRepositories(InMemoryStore store)
     public Task<UnitResult<Error>> RemoveAsync(Match match, CancellationToken ct)
     {
         store.Matches.Remove(match.Id.Value);
-        store.Forgotten.Add(match.PersonId.Value);
+        store.Forgotten.UnionWith(match.IdentityKeys);
         return Done();
     }
 
-    public Task<Result<bool, Error>> IsForgottenAsync(TashdateUserId personId, CancellationToken ct) =>
-        Ok(store.Forgotten.Contains(personId.Value));
+    public Task<Result<bool, Error>> IsForgottenAsync(IReadOnlyCollection<string> personKeys, CancellationToken ct) =>
+        Ok(personKeys.Any(store.Forgotten.Contains));
 
     public Task<Result<IReadOnlyDictionary<MatchStatus, int>, Error>> CountByStatusAsync(CancellationToken ct) =>
         Ok<IReadOnlyDictionary<MatchStatus, int>>(store.Matches.Values.GroupBy(m => m.Status).ToDictionary(g => g.Key, g => g.Count()));

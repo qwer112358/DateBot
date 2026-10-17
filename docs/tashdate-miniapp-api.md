@@ -41,3 +41,22 @@
 - `profile_extras` — JSON-объект в виде строки: `pets`, `sport`, `education`, `family_plans`, `comm_style` (коды) и `habits` (объект флагов); может быть `null` или `{}`.
 - `communication_language` — код языка общения анкеты.
 - Пустые анкеты встречаются часто: у части лайков нет ни описания, ни интересов.
+- Ошибки: `{"detail": {"code": …}}` (`profile_*` — ограничена ваша анкета, `chat_unavailable` — чат закрыт) или `{"error": …}` (`like_limit_reached`).
+
+## Как DateBot использует API
+
+| Шаг | Запросы | Код |
+| --- | --- | --- |
+| Вход | `messages.requestWebView` к боту (URL кнопки меню или «Открыть знакомства»), затем `GET /api/user/{telegram_id}` и `GET /api/i18n/ru` | `WTelegramTashdateClient.OpenWebAppAsync`, `TashdateAppClient` |
+| Новые лайки | `GET /api/likes/{me}?limit=30&offset=…` (не больше двух страниц) | `SyncAppLikesHandler` |
+| Анкета | `GET /api/user/id/{id}`, фото `GET /photos/{file}` | `ProcessAppLikeHandler`, `AppResponses.Profile` |
+| Лайк в ответ | `POST /api/like`; прерванный лайк сначала ищется в `GET /api/matches/{me}` | `LikeBack` |
+| Анкета к карточке мэтча | `GET /api/matches/{me}` по `@username`, затем `GET /api/user/id/{id}` | `EnrichFromApp` |
+| Сообщение в чат приложения | `POST /api/chat/send` с `client_key` = id анкеты в DateBot | `GenerateAndSendReply` |
+
+Как запросы оцениваются при сбое:
+
+- `401` или `403` без кода — вход отклонён: `initData` запрашивается заново, запрос повторяется один раз.
+- `429 like_limit_reached` — пауза лайков на час, чат бота и сообщения работают.
+- `403/404 profile_*` — ваша анкета ограничена: пауза на 6 часов и уведомление.
+- `5xx` и обрыв связи у `POST /api/chat/send` — исход неизвестен, сообщение не повторяется; у остальных запросов — повтор позже.

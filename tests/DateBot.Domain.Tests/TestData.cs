@@ -30,5 +30,25 @@ internal static class TestData
             Profile(),
             Now)).Value;
 
+    /// <summary>A like found in the app: no bot message, identity by the app id.</summary>
+    public static Match AppLike(long appId = 501, string name = "Лола") =>
+        Match.Create(new MatchInput(
+            MatchId.Create(Guid.NewGuid()).Value,
+            TashdateUserId.Create(PersonKeys.ForApp(appId)).Value,
+            Maybe<BotMessageId>.None,
+            MatchKind.LikedMe,
+            Matches.Profile.Create(new ProfileInput(
+                ProfileName.Create(name).Value,
+                Maybe.From(Age.Create(23).Value),
+                Maybe.From(City.Create("Ташкент").Value),
+                Maybe<Bio>.None,
+                Interests.Create(["кофе"]).Value,
+                Maybe.From(PhotoFileId.Create("app:abc_1.jpg").Value),
+                Maybe<ContactUsername>.None,
+                $"{name}, 23, Ташкент",
+                ProfileFacts.Create(["Рост: 165 см"]).Value,
+                Maybe.From(AppProfileId.Create(appId).Value))).Value,
+            Now)).Value;
+
     public static ReplyText Reply(string text = "Привет! Вижу, ты тоже любишь горы.") => ReplyText.Create(text).Value;
 }

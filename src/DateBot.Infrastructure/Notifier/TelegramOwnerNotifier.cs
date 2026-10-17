@@ -28,6 +28,7 @@ internal sealed class TelegramOwnerNotifier(
 {
     private const int CaptionLimit = 1024;
     private const int TextLimit = 4000;
+    private const int ButtonsPerRow = 2;
 
     public async Task<UnitResult<Error>> NotifyAsync(OwnerNotification notification, CancellationToken ct)
     {
@@ -60,7 +61,9 @@ internal sealed class TelegramOwnerNotifier(
     {
         var markup = formatted.Buttons.IsDefaultOrEmpty
             ? null
-            : new InlineKeyboardMarkup(formatted.Buttons.Select(b => InlineKeyboardButton.WithCallbackData(b.Text, b.Data)));
+            : new InlineKeyboardMarkup(formatted.Buttons
+                .Chunk(ButtonsPerRow)
+                .Select(row => row.Select(b => InlineKeyboardButton.WithCallbackData(b.Text, b.Data))));
         var photo = await LoadPhotoAsync(formatted, ct);
 
         if (photo.HasValue && formatted.Html.Length <= CaptionLimit)

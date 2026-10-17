@@ -20,6 +20,9 @@ public static class MatchErrors
         "match.send_outcome_unknown",
         "Отправка сообщения прервалась перезапуском; повтор не делаем, чтобы не написать дважды");
 
+    public static Error ChannelUnavailable(MessageChannel channel, string reason) => Error.Conflict(
+        "match.channel_unavailable", $"Канал {channel} недоступен: {reason}");
+
     public static Error InvalidTransition(MatchStatus from, MatchStatus to) => Error.Conflict(
         "match.invalid_transition", $"Переход статуса {from} → {to} не разрешён");
 

@@ -198,7 +198,7 @@ public sealed class ProcessBotMessageTests
         var mapped = ProfileMapper.ToDomain(((MutualNotification)BotNotificationParser.Parse(message, TestOptions.Rules())).Profile, message.Text).Value;
         var match = Match.Create(new MatchInput(
             MatchId.Create(Guid.NewGuid()).Value, mapped.PersonId, BotMessageId.Create(11).Value, MatchKind.Mutual, mapped.Profile, host.Clock.UtcNow)).Value;
-        match.StartMessage(ReplyText.Create(FakeReplyGenerator.GoodReply).Value, host.Clock.UtcNow);
+        match.StartMessage(ReplyText.Create(FakeReplyGenerator.GoodReply).Value, MessageChannel.Telegram, host.Clock.UtcNow);
         host.Store.Matches[match.Id.Value] = match;
         host.Store.Inbox[11] = InboxMessage.Receive(BotMessageId.Create(11).Value, message.Text, message.SentAt, host.Clock.UtcNow).Value;
 

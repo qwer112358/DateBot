@@ -20,9 +20,10 @@ namespace DateBot.Infrastructure.Telegram;
 /// Userbot over MTProto (WTelegramClient). Library exceptions never leave this class:
 /// they become <see cref="Result"/> failures (FLOOD_WAIT → RateLimited, network → retryable).
 /// </summary>
-internal sealed class WTelegramTashdateClient : ITashdateClient, IAsyncDisposable
+internal sealed class WTelegramTashdateClient : ITashdateClient, IWebAppLauncher, IAsyncDisposable
 {
     private const int HistoryPageSize = 100;
+    private const string WebAppPlatform = "web";
 
     private readonly TelegramOptions _options;
     private readonly StorageOptions _storage;
@@ -197,6 +198,48 @@ internal sealed class WTelegramTashdateClient : ITashdateClient, IAsyncDisposabl
             };
             return Result.Success<Maybe<ProfilePhoto>, Error>(Maybe.From(new ProfilePhoto(stream.ToArray(), mediaType)));
         });
+
+    /// <summary>
+    /// <c>messages.requestWebView</c> with the bot's menu-button or web-app-button URL (as a tap on "Открыть знакомства"),
+    /// or <c>messages.requestMainWebView</c> when the bot has neither; the returned URL carries the signed init data.
+    /// </summary>
+    public Task<Result<WebAppSession, Error>> OpenWebAppAsync(Maybe<Uri> url, CancellationToken ct) =>
+        Guard(async () =>
+        {
+            var (client, bot) = await EnsureConnectedAsync(ct);
+            var (target, fromMenu) = url.HasValue ? (url.GetValueOrThrow().ToString(), false) : await FindWebAppAsync(client, bot);
+            var result = target is null
+                ? await client.Messages_RequestMainWebView(bot, bot, platform: WebAppPlatform)
+                : await client.Messages_RequestWebView(bot, bot, platform: WebAppPlatform, url: target, from_bot_menu: fromMenu);
+
+            if (result is not WebViewResultUrl { url: { } opened } || !Uri.TryCreate(opened, UriKind.Absolute, out var address))
+            {
+                return Result.Failure<WebAppSession, Error>(TelegramErrors.WebAppNotFound);
+            }
+
+            return WebAppUrl.InitData(address)
+                .ToResult(TelegramErrors.WebAppNotFound)
+                .Map(initData => new WebAppSession(WebAppUrl.Origin(address), initData, client.UserId));
+        });
+
+    private static async Task<(string? Url, bool FromMenu)> FindWebAppAsync(Client client, User bot)
+    {
+        var full = await client.Users_GetFullUser(bot);
+        if (full.full_user.bot_info?.menu_button is BotMenuButton { url: { Length: > 0 } menuUrl })
+        {
+            return (menuUrl, true);
+        }
+
+        var recent = await client.Messages_GetHistory(bot, limit: 20);
+        var buttonUrl = (recent.Messages ?? [])
+            .OfType<Message>()
+            .Select(m => m.reply_markup)
+            .OfType<ReplyInlineMarkup>()
+            .SelectMany(markup => markup.rows.SelectMany(row => row.buttons))
+            .Select(button => button.type is InlineButtonTypeWebView webView ? webView.url : null)
+            .FirstOrDefault(u => !string.IsNullOrEmpty(u));
+        return (buttonUrl, false);
+    }
 
     public async ValueTask DisposeAsync()
     {

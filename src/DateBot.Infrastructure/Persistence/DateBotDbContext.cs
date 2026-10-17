@@ -28,6 +28,8 @@ public sealed class DateBotDbContext(DbContextOptions<DateBotDbContext> options)
             e.HasIndex(x => x.BotMessageId).IsUnique();
             e.HasIndex(x => x.PersonId).IsUnique();
             e.HasIndex(x => x.ReceivedAt);
+            e.HasIndex(x => x.Username);
+            e.HasIndex(x => x.AppId);
             e.Property(x => x.PersonId).HasMaxLength(128);
             e.Property(x => x.Name).HasMaxLength(64);
             e.Property(x => x.City).HasMaxLength(64);
@@ -46,6 +48,7 @@ public sealed class DateBotDbContext(DbContextOptions<DateBotDbContext> options)
             e.HasIndex(x => x.UpdatedAt);
             e.Property(x => x.Type).HasConversion<string>().HasMaxLength(16);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.Channel).HasConversion<string>().HasMaxLength(16);
         });
 
         modelBuilder.Entity<InboxRecord>(e =>

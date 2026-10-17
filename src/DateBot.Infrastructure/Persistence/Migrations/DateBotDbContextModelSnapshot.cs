@@ -26,6 +26,10 @@ namespace DateBot.Infrastructure.Persistence.Migrations
                     b.Property<long?>("AnchorMessageId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Channel")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("CreatedAt")
                         .HasColumnType("INTEGER");
 
@@ -117,19 +121,29 @@ namespace DateBot.Infrastructure.Persistence.Migrations
                     b.Property<int?>("Age")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("AppId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Bio")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("BotMessageId")
+                    b.Property<long?>("BotMessageId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("City")
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Facts")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Interests")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsMutual")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Kind")
                         .IsRequired()
@@ -171,6 +185,8 @@ namespace DateBot.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AppId");
+
                     b.HasIndex("BotMessageId")
                         .IsUnique();
 
@@ -178,6 +194,8 @@ namespace DateBot.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("ReceivedAt");
+
+                    b.HasIndex("Username");
 
                     b.ToTable("Profiles", (string)null);
                 });

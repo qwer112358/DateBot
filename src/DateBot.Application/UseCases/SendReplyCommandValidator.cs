@@ -4,5 +4,9 @@ namespace DateBot.Application.UseCases;
 
 public sealed class SendReplyCommandValidator : AbstractValidator<SendReplyCommand>
 {
-    public SendReplyCommandValidator() => RuleFor(c => c.MatchId).NotEmpty();
+    public SendReplyCommandValidator()
+    {
+        RuleFor(c => c.MatchId).NotEmpty();
+        RuleFor(c => c.Channel).IsInEnum();
+    }
 }

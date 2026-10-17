@@ -22,7 +22,7 @@ public sealed class MatchTests
 
         var result = match.StartLikeBack(Now)
             .Bind(() => match.CompleteLikeBack(Now))
-            .Bind(() => match.StartMessage(Reply(), Now))
+            .Bind(() => match.StartMessage(Reply(), MessageChannel.Telegram, Now))
             .Bind(() => match.CompleteMessage(Now))
             .Bind(() => match.Close());
 
@@ -42,7 +42,7 @@ public sealed class MatchTests
     {
         var match = NewMatch(MatchKind.Mutual);
 
-        match.StartMessage(Reply(), Now).Bind(() => match.CompleteMessage(Now)).IsSuccess.Should().BeTrue();
+        match.StartMessage(Reply(), MessageChannel.Telegram, Now).Bind(() => match.CompleteMessage(Now)).IsSuccess.Should().BeTrue();
 
         match.Status.Should().Be(MatchStatus.MessageSent);
         match.Actions.Should().ContainSingle(a => a.Type == ActionType.SendMessage);
@@ -61,16 +61,16 @@ public sealed class MatchTests
     {
         var match = NewMatch(MatchKind.LikedMe);
 
-        match.StartMessage(Reply(), Now).Error.Code.Should().Be("match.invalid_state");
+        match.StartMessage(Reply(), MessageChannel.Telegram, Now).Error.Code.Should().Be("match.invalid_state");
     }
 
     [Fact]
     public void Only_one_auto_message_per_person()
     {
         var match = NewMatch(MatchKind.Mutual);
-        match.StartMessage(Reply(), Now).Bind(() => match.CompleteMessage(Now));
+        match.StartMessage(Reply(), MessageChannel.Telegram, Now).Bind(() => match.CompleteMessage(Now));
 
-        match.StartMessage(Reply("Ещё одно сообщение"), Now).Error.Should().Be(MatchErrors.AlreadyMessaged);
+        match.StartMessage(Reply("Ещё одно сообщение"), MessageChannel.Telegram, Now).Error.Should().Be(MatchErrors.AlreadyMessaged);
         match.DraftReply(Reply("Черновик"), Anchor, Now).Error.Should().Be(MatchErrors.AlreadyMessaged);
     }
 
@@ -78,7 +78,7 @@ public sealed class MatchTests
     public void Closed_match_cannot_fail()
     {
         var match = NewMatch(MatchKind.Mutual);
-        match.StartMessage(Reply(), Now).Bind(() => match.CompleteMessage(Now)).Bind(() => match.Close());
+        match.StartMessage(Reply(), MessageChannel.Telegram, Now).Bind(() => match.CompleteMessage(Now)).Bind(() => match.Close());
 
         match.Fail(Error.External("x", "y"), Now).Error.Code.Should().Be("match.invalid_transition");
     }
@@ -112,12 +112,12 @@ public sealed class MatchTests
     public void Aborted_send_can_be_retried()
     {
         var match = NewMatch(MatchKind.Mutual);
-        match.StartMessage(Reply(), Now);
+        match.StartMessage(Reply(), MessageChannel.Telegram, Now);
 
         match.AbortPendingAction(Error.RateLimited("telegram.flood_wait", "wait", TimeSpan.FromSeconds(30)), Now);
 
         match.HasActiveMessage.Should().BeFalse();
-        match.StartMessage(Reply(), Now).IsSuccess.Should().BeTrue();
+        match.StartMessage(Reply(), MessageChannel.Telegram, Now).IsSuccess.Should().BeTrue();
     }
 
     [Fact]
@@ -128,11 +128,11 @@ public sealed class MatchTests
         match.DraftMessage.GetValueOrThrow().Anchor.Should().Be(Maybe.From(Anchor));
         match.DomainEvents.OfType<ReplyDrafted>().Should().ContainSingle();
 
-        match.StartMessage(Reply(), Now).IsSuccess.Should().BeTrue();
+        match.StartMessage(Reply(), MessageChannel.Telegram, Now).IsSuccess.Should().BeTrue();
         match.AbortPendingAction(Error.RateLimited("telegram.flood_wait", "wait", TimeSpan.FromSeconds(30)), Now);
 
         match.DraftMessage.HasValue.Should().BeTrue();
-        match.StartMessage(Reply(), Now).Bind(() => match.CompleteMessage(Now)).IsSuccess.Should().BeTrue();
+        match.StartMessage(Reply(), MessageChannel.Telegram, Now).Bind(() => match.CompleteMessage(Now)).IsSuccess.Should().BeTrue();
         match.Actions.Should().ContainSingle(a => a.Type == ActionType.SendMessage && a.Status == ActionStatus.Done);
     }
 
@@ -157,7 +157,8 @@ public sealed class MatchTests
         var restored = Match.Restore(new MatchState(
             original.Id, original.PersonId, original.SourceMessageId, original.Kind, original.Profile, original.ReceivedAt,
             original.Status,
-            [.. original.Actions.Select(a => new MatchActionState(a.Sequence, a.Type, a.Status, a.Text, a.FailureReason, a.CreatedAt, a.UpdatedAt))]));
+            [.. original.Actions.Select(a => new MatchActionState(a.Sequence, a.Type, a.Status, a.Text, a.FailureReason, a.CreatedAt, a.UpdatedAt))],
+            original.IsMutual));
 
         restored.IsSuccess.Should().BeTrue();
         restored.Value.Status.Should().Be(MatchStatus.LikedBack);
@@ -175,7 +176,8 @@ public sealed class MatchTests
             [
                 new MatchActionState(1, ActionType.SendMessage, ActionStatus.Done, reply, Maybe<string>.None, Now, Now),
                 new MatchActionState(2, ActionType.SendMessage, ActionStatus.Done, reply, Maybe<string>.None, Now, Now),
-            ]);
+            ],
+            IsMutual: true);
 
         var restored = Match.Restore(state);
 
@@ -189,7 +191,8 @@ public sealed class MatchTests
         var state = new MatchState(
             MatchId.Create(Guid.NewGuid()).Value, TashdateUserId.Create("fp:x").Value, Shared.BotMessageId.Create(1).Value,
             MatchKind.Mutual, Profile(), Now, MatchStatus.LikedBack,
-            [new MatchActionState(1, ActionType.LikeBack, ActionStatus.Done, Maybe<ReplyText>.None, Maybe<string>.None, Now, Now)]);
+            [new MatchActionState(1, ActionType.LikeBack, ActionStatus.Done, Maybe<ReplyText>.None, Maybe<string>.None, Now, Now)],
+            IsMutual: true);
 
         Match.Restore(state).IsFailure.Should().BeTrue();
     }

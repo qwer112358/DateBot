@@ -27,11 +27,24 @@ public sealed class TashdateFormatTests
     [Theory]
     [InlineData("💌 Тобой интересуются\n\nЗагляни в приложение — вдруг это взаимно.")]
     [InlineData("🔥 Рустам, тебя лайкнули 2 раза за последние 24 часа\n\nОткрой приложение — посмотри кто и ответь лайком")]
-    public void Like_hints_without_a_profile_are_ignored_not_parse_failures(string text)
+    public void Like_hints_without_a_profile_are_hints_not_parse_failures(string text)
     {
         var message = Text(50, text) with { Buttons = [new BotButton("💛 Открыть знакомства", 0, 0)] };
 
-        BotNotificationParser.Parse(message, Rules).Should().BeOfType<IgnoredNotification>();
+        BotNotificationParser.Parse(message, Rules).Should().BeOfType<LikeHintNotification>();
+    }
+
+    [Fact]
+    public async Task Like_hint_is_stored_as_ignored_and_counted_so_the_app_is_checked()
+    {
+        await using var host = new TestHost(parsing: TestOptions.TashdateParsing());
+        host.Client.History.Add(Text(50, "💌 Тобой интересуются\n\nЗагляни в приложение — вдруг это взаимно."));
+
+        var report = await host.CatchUpAsync();
+
+        report.Value.LikeHints.Should().Be(1);
+        host.Store.Inbox[50].Status.Should().Be(Domain.Inbox.InboxStatus.Ignored);
+        host.Notifier.Sent.OfType<ParseFailedNotification>().Should().BeEmpty();
     }
 
     [Fact]

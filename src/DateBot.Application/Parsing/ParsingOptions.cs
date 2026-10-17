@@ -14,6 +14,9 @@ public sealed class ParsingOptions
     /// <summary>Service messages of the bot that need no reaction.</summary>
     public string[] IgnoreMarkers { get; init; } = [];
 
+    /// <summary>"Someone liked you" without a profile; the likes are then read from the app.</summary>
+    public string[] LikeHintMarkers { get; init; } = [];
+
     /// <summary>
     /// Regexes with groups <c>name</c> (required), <c>age</c>, <c>city</c>, <c>bio</c>; tried in order, the first match
     /// wins. Several are needed because notifications differ: a match card shows only the name.

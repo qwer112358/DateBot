@@ -17,6 +17,7 @@ public sealed class MatchStateValidator : AbstractValidator<MatchState>
                 .Equal(true)
                 .When(a => a.Type == ActionType.SendMessage)
                 .WithErrorCode("match.message_without_text");
+            action.RuleFor(a => a.Channel.GetValueOrDefault(MessageChannel.BotChat)).IsInEnum().WithErrorCode("match.action_channel");
         });
         RuleFor(m => m.Actions)
             .Must(a => a.Select(x => x.Sequence).Distinct().Count() == a.Count)

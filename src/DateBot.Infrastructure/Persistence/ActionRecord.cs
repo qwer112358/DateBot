@@ -25,4 +25,7 @@ public sealed class ActionRecord
 
     /// <summary>For a draft: the bot notification it answers.</summary>
     public long? AnchorMessageId { get; set; }
+
+    /// <summary>For a message: where it went (Telegram, App, BotChat).</summary>
+    public MessageChannel? Channel { get; set; }
 }

@@ -18,7 +18,9 @@ internal sealed class ForgetMatchHandler(
             .Bind(id => matches.FindByIdAsync(id, ct).Bind(found => found.ToResult(MatchErrors.NotFound(id))))
             .Bind(match => DeletePhotoAsync(match, ct)
                 .Bind(() => matches.RemoveAsync(match, ct))
-                .Bind(() => inbox.RemoveAsync(match.SourceMessageId, ct))
+                .Bind(() => match.SourceMessageId.HasValue
+                    ? inbox.RemoveAsync(match.SourceMessageId.GetValueOrThrow(), ct)
+                    : Task.FromResult(UnitResult.Success<Error>()))
                 .Bind(() => unitOfWork.CommitAsync(ct)))
             .Map(() => Unit.Value);
 

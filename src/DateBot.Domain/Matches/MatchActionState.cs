@@ -11,4 +11,5 @@ public sealed record MatchActionState(
     Maybe<string> FailureReason,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    Maybe<BotMessageId> Anchor = default);
+    Maybe<BotMessageId> Anchor = default,
+    Maybe<MessageChannel> Channel = default);

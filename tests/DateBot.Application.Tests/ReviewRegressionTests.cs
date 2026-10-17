@@ -1,3 +1,4 @@
+using DateBot.Application.Abstractions;
 using DateBot.Application.Notifications;
 using DateBot.Application.Processing;
 using DateBot.Application.Telegram;
@@ -24,7 +25,7 @@ public sealed class ReviewRegressionTests
         again.Value.Should().Be(ProcessOutcome.AlreadyProcessed);
         host.Client.Sends.Should().Be(0);
         host.Store.SingleMatch.Status.Should().Be(MatchStatus.Failed);
-        host.Notifier.Sent.OfType<ActionFailedNotification>().Single().Reason.Code.Should().Be(TelegramErrors.SendOutcomeUnknownCode);
+        host.Notifier.Sent.OfType<ActionFailedNotification>().Single().Reason.Code.Should().Be(DeliveryErrors.OutcomeUnknownCode);
     }
 
     [Fact]

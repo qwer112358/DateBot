@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddCommandHandler<DecideLikeBackCommand, Unit, DecideLikeBackHandler>();
         services.AddCommandHandler<ReviseDraftCommand, Unit, ReviseDraftHandler>();
         services.AddCommandHandler<OfferDraftCommand, Unit, OfferDraftHandler>();
+        services.AddCommandHandler<OfferDraftsCommand, int, OfferDraftsHandler>();
         services.AddCommandHandler<LookUpContactsCommand, ImmutableArray<MessageChannel>, LookUpContactsHandler>();
         services.AddCommandHandler<GetStatusQuery, StatusReport, GetStatusHandler>();
         services.AddCommandHandler<HandleOwnerRequestCommand, Unit, HandleOwnerRequestHandler>();

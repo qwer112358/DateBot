@@ -43,6 +43,34 @@ internal sealed class EfMatchRepository(DateBotDbContext db, ChangeSet changes, 
                 ct);
     }
 
+    public Task<Result<IReadOnlyList<Match>, Error>> FindWithDraftAsync(CancellationToken ct) =>
+        Db.TryAsync(async () =>
+        {
+            var records = await db.Matches
+                .AsNoTracking()
+                .Include(m => m.Actions)
+                .Where(m => m.Actions.Any(a => a.Type == ActionType.SendMessage && a.Status == ActionStatus.Draft))
+                .OrderBy(m => m.ReceivedAt)
+                .ToListAsync(ct);
+
+            var matches = new List<Match>();
+            foreach (var record in records)
+            {
+                var match = RecordMapper.ToDomain(record);
+                if (match.IsFailure)
+                {
+                    return Result.Failure<IReadOnlyList<Match>, Error>(match.Error);
+                }
+
+                if (!match.Value.IsClosed)
+                {
+                    matches.Add(match.Value);
+                }
+            }
+
+            return Result.Success<IReadOnlyList<Match>, Error>(matches);
+        });
+
     public Task<UnitResult<Error>> AddAsync(Match match, CancellationToken ct)
     {
         changes.Track(match, record: null);

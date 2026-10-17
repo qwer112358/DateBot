@@ -112,6 +112,21 @@ public sealed class DraftEditTests
         host.Notifier.Sent.Last().Should().BeOfType<StatusNotification>();
     }
 
+    [Fact]
+    public async Task Drafts_command_sends_every_waiting_card_again()
+    {
+        await using var host = await WithDraftAsync();
+        host.App.AddLike(502, "Мадина");
+        await host.SyncAppAsync();
+        await host.DecideAsync(host.Store.Matches.Values.Single(m => m.Profile.Name.Value == "Мадина").Id.Value, approve: false);
+
+        await host.OwnerAsync(new DraftsRequest(7, 42));
+
+        host.Notifier.Sent.OfType<DraftReadyNotification>().Select(n => n.Profile.Name.Value)
+            .Should().Equal(["Лола", "Мадина", "Лола"], "the skipped draft does not come back");
+        host.Notifier.Sent.OfType<TextNotification>().Last().Text.Should().Be("Черновиков ждут решения: 1, карточки выше.");
+    }
+
     /// <summary>A like from the app, liked back, with its draft card waiting: the starting point of every edit.</summary>
     private static async Task<TestHost> WithDraftAsync()
     {

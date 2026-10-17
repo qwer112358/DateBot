@@ -18,6 +18,9 @@ public interface IMatchRepository
     /// </summary>
     Task<Result<Maybe<Match>, Error>> FindByContactAsync(Maybe<ContactUsername> username, Maybe<AppProfileId> appId, CancellationToken ct);
 
+    /// <summary>Open matches whose message draft waits for the owner, oldest first. Read-only: nothing is tracked.</summary>
+    Task<Result<IReadOnlyList<Match>, Error>> FindWithDraftAsync(CancellationToken ct);
+
     Task<UnitResult<Error>> AddAsync(Match match, CancellationToken ct);
 
     /// <summary>Deletes the match and keeps only tombstones of its <see cref="Match.IdentityKeys"/>, so they are never answered twice.</summary>

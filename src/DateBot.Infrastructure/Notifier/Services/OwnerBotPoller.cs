@@ -69,6 +69,7 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
             "/status" => new StatusRequest(chatId, userId),
             "/likes" => new CheckLikesRequest(chatId, userId),
             "/cancel" => new CancelRequest(chatId, userId),
+            "/drafts" => new DraftsRequest(chatId, userId),
             _ => new UnknownRequest(chatId, userId, text),
         };
     }

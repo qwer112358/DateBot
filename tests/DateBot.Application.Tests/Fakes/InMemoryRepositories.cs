@@ -27,6 +27,9 @@ internal sealed class InMemoryRepositories(InMemoryStore store)
                 && string.Equals(m.Profile.Username.GetValueOrThrow().Value, username.GetValueOrThrow().Value, StringComparison.OrdinalIgnoreCase))
             || (appId.HasValue && m.Profile.AppId == appId)));
 
+    public Task<Result<IReadOnlyList<Match>, Error>> FindWithDraftAsync(CancellationToken ct) =>
+        Ok<IReadOnlyList<Match>>([.. store.Matches.Values.Where(m => !m.IsClosed && m.DraftMessage.HasValue).OrderBy(m => m.ReceivedAt)]);
+
     public Task<UnitResult<Error>> AddAsync(Match match, CancellationToken ct)
     {
         store.Matches[match.Id.Value] = match;

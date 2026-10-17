@@ -48,6 +48,7 @@ Without secrets the service refuses to start and lists what is missing (FluentVa
 | «🔄 Найти в приложении» | On a draft with nowhere to send (the person has no `@username` and was not found in the app): searches again and, if found, sends a card with the «💬 В приложении» button |
 | «✏️ Изменить» / «🤖 Переписать» | On a draft: your next message becomes the new text, or tells the model what to change («короче», «спроси про собаку»). The card comes again with the result. Your own text follows the same rules: no links, phone numbers or `@mentions` |
 | `/cancel` | Leaves the draft you started editing as it was and brings its card back; any other command does the same |
+| `/drafts` | Sends every draft that waits for your decision again: when cards got buried in the chat or came from an older version without the newer buttons |
 | «🗑 Забыть» | Deletes everything about the person: profile, actions, the original notification, photo. Only a fingerprint of the id stays, so the person is never messaged again |
 
 ## How it works

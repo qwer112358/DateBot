@@ -299,6 +299,31 @@ public sealed class PersistenceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Only_open_matches_with_a_waiting_draft_are_found_for_drafts()
+    {
+        var waiting = NewMatch(MatchKind.Mutual, "fp:waiting", 1);
+        waiting.DraftReply(Reply, MessageId(1), Now);
+        var skipped = NewMatch(MatchKind.Mutual, "fp:skipped", 2);
+        skipped.DraftReply(Reply, MessageId(2), Now);
+        skipped.SkipReply(Now);
+        await InScopeAsync(async sp =>
+        {
+            var repository = sp.GetRequiredService<IMatchRepository>();
+            await repository.AddAsync(waiting, default);
+            await repository.AddAsync(skipped, default);
+            await repository.AddAsync(NewMatch(MatchKind.LikedMe, "fp:fresh", 3), default);
+            await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default);
+        });
+
+        await InScopeAsync(async sp =>
+        {
+            var found = (await sp.GetRequiredService<IMatchRepository>().FindWithDraftAsync(default)).Value;
+
+            found.Select(m => m.Id).Should().Equal(waiting.Id);
+        });
+    }
+
+    [Fact]
     public async Task Draft_keeps_its_anchor_through_the_database()
     {
         var match = NewMatch(MatchKind.LikedMe);

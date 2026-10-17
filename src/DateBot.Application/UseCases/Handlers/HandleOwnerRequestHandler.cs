@@ -39,7 +39,7 @@ internal sealed class HandleOwnerRequestHandler(
 {
     private const string Help =
         "Команды: /start — включить и получать уведомления, /stop — экстренная остановка, /status — сводка, "
-        + "/likes — проверить лайки в приложении, /cancel — отменить правку черновика.";
+        + "/likes — проверить лайки в приложении, /drafts — прислать черновики заново, /cancel — отменить правку черновика.";
 
     public Task<Result<Unit, Error>> HandleAsync(HandleOwnerRequestCommand command, CancellationToken ct) =>
         control.GetAsync(ct)
@@ -139,6 +139,11 @@ internal sealed class HandleOwnerRequestHandler(
                 .SendAsync<ForgetMatchCommand, Unit>(new ForgetMatchCommand(forget.MatchId), ct)
                 .Map(_ => (OwnerNotification)new TextNotification("Данные об этом человеке удалены.")),
             CheckLikesRequest => Task.FromResult(Answer(RequestLikesCheck(state))),
+            DraftsRequest => dispatcher
+                .SendAsync<OfferDraftsCommand, int>(new OfferDraftsCommand(), ct)
+                .Map(count => (OwnerNotification)new TextNotification(count == 0
+                    ? "Черновиков, которые ждут решения, нет."
+                    : $"Черновиков ждут решения: {count}, карточки выше.")),
             LikeBackDecisionRequest decision => dispatcher
                 .SendAsync<DecideLikeBackCommand, Unit>(new DecideLikeBackCommand(decision.MatchId, decision.Approve), ct)
                 .Map(_ => (OwnerNotification)new TextNotification(LikeBackAnswer(state, decision.Approve))),

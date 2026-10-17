@@ -145,6 +145,7 @@ public sealed class NotifierTests
     [InlineData("/status@my_notifier_bot", typeof(StatusRequest))]
     [InlineData("/likes", typeof(CheckLikesRequest))]
     [InlineData("/cancel", typeof(CancelRequest))]
+    [InlineData("/drafts", typeof(DraftsRequest))]
     [InlineData("привет", typeof(UnknownRequest))]
     public void Commands_are_parsed(string text, Type expected) =>
         OwnerBotPoller.ParseCommand(7, 42, text).Should().BeOfType(expected);

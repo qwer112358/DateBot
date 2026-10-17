@@ -1,62 +1,62 @@
-# Стандарты кода DateBot
+# DateBot coding standards
 
-Так написан весь код решения, и так пишется новый. Ревью проверяет каждое правило ниже; некоторые из них проверяют ещё сборка или `ArchitectureTests`, это сказано у правила.
+All code in the solution is written this way, and new code follows suit. Review checks every rule below; the build or `ArchitectureTests` also enforce some of them, as noted at the rule.
 
-## Слои и зависимости
+## Layers and dependencies
 
-Clean Architecture, зависимости направлены внутрь. Правило проверяет `ArchitectureTests`.
+Clean Architecture, dependencies point inward. `ArchitectureTests` enforces the rule.
 
-| Проект | Может зависеть от | Что в нём |
+| Project | May depend on | Contents |
 | --- | --- | --- |
-| `DateBot.Domain` | только CSharpFunctionalExtensions и FluentValidation | агрегаты, value objects, доменные события, `Error` |
-| `DateBot.Application` | Domain, абстракции `Microsoft.Extensions.*` | use cases, порты, разбор сообщений, промпт и проверка ответа |
-| `DateBot.Infrastructure` | Application | адаптеры портов: Telegram, Mini App, бот-уведомитель, Anthropic, EF Core |
-| `DateBot.Worker` | всё | composition root: настройки, DI, фоновые сервисы |
+| `DateBot.Domain` | only CSharpFunctionalExtensions and FluentValidation | aggregates, value objects, domain events, `Error` |
+| `DateBot.Application` | Domain, `Microsoft.Extensions.*` abstractions | use cases, ports, message parsing, prompt and reply check |
+| `DateBot.Infrastructure` | Application | port adapters: Telegram, Mini App, notifier bot, Anthropic, EF Core |
+| `DateBot.Worker` | everything | composition root: settings, DI, background services |
 
-Новая внешняя система подключается так: порт в `Application/Ports/<группа>`, адаптер в `Infrastructure/<Адаптер>`, регистрация в `Infrastructure/DependencyInjection.cs`. Группы портов: `Persistence` (репозитории, unit of work, хранилища состояния), `Dating` (площадка: `ITashdateClient`, `ITashdateApp`), `Services` (часы, уведомитель, LLM, фото, лимиты).
+A new external system plugs in as: a port in `Application/Ports/<group>`, an adapter in `Infrastructure/<Adapter>`, registration in `Infrastructure/DependencyInjection.cs`. Port groups: `Persistence` (repositories, unit of work, state stores), `Dating` (the platform: `ITashdateClient`, `ITashdateApp`), `Services` (clock, notifier, LLM, photos, limits).
 
-Площадка держится за портом. Всё, что знает о Tashdate, называется по Tashdate (`TashdateAppClient`, `TashdateUserId`); остальное называется нейтрально, чтобы подключить Badoo своими адаптерами.
+The platform stays behind a port. Whatever knows about Tashdate is named after Tashdate (`TashdateAppClient`, `TashdateUserId`); everything else gets a neutral name, so Badoo can plug in with its own adapters.
 
-## Файлы, папки, namespace
+## Files, folders, namespaces
 
-- Один тип на файл, имя файла совпадает с именем типа. Приватный вложенный тип может остаться внутри родителя.
-- Внутри проекта папки по областям (`Matches`, `Parsing`, `MiniApp`, `Persistence`…), внутри области — папки по видам. Namespace повторяет путь к папке.
-- Новый файл сразу кладётся в папку своего вида. Если вида в области ещё нет, создаётся папка с именем из таблицы.
-- В корне области лежит только её ядро: агрегат и `<Область>Errors` (`Match`, `MatchAction`, `MatchErrors`), ошибки области Application (`AppErrors`, `TelegramErrors`, `OwnerErrors`), иерархия `OwnerNotification`.
+- One type per file, the file named after the type. A private nested type may stay inside its parent.
+- Inside a project, folders by area (`Matches`, `Parsing`, `MiniApp`, `Persistence`…); inside an area, folders by kind. The namespace mirrors the folder path.
+- A new file goes straight into the folder of its kind. If the area has no such kind yet, create the folder with the name from the table.
+- An area's root holds only its core: the aggregate and `<Area>Errors` (`Match`, `MatchAction`, `MatchErrors`), the Application area errors (`AppErrors`, `TelegramErrors`, `OwnerErrors`), the `OwnerNotification` hierarchy.
 
-| Слой | Папки внутри области |
+| Layer | Folders inside an area |
 | --- | --- |
-| Domain | `ValueObjects`, `Enums`, `Events`, `States` (входы фабрик и снимки для восстановления), `Validators` |
-| Application, `UseCases` | `Commands`, `Queries`, `Handlers`, `Validators`, `Models` (результаты), `Enums`, `OwnerRequests`, `Services` (общие шаги сценариев), `EventHandlers` |
-| Application, остальные области | `Services`, `Models`, `Enums`, `Options`, `Validators` и свои иерархии (`Routes`, `Plans`, `BotNotifications`) |
-| Application, общее | `Ports/{Persistence,Dating,Services}`, `Abstractions/{Messaging,Events,Errors}` |
-| Infrastructure | по адаптерам (`Telegram`, `MiniApp`, `Notifier`, `Llm`, `Platform`, `Persistence`), внутри `Services` (реализации), `Models` (DTO), `Enums`, `Options`, `Validators`, `Abstractions` (внутренние швы между адаптерами, например `IWebAppLauncher`); в `Persistence` — `Records`, `Repositories`, `UnitOfWork`, `Mapping`, `Migrations` |
-| Worker | `Workers` (фоновые сервисы), `Configuration` (проверка настроек при старте) |
-| Тесты | `Fakes`, `Support` и папки по областям |
+| Domain | `ValueObjects`, `Enums`, `Events`, `States` (factory inputs and snapshots for restore), `Validators` |
+| Application, `UseCases` | `Commands`, `Queries`, `Handlers`, `Validators`, `Models` (results), `Enums`, `OwnerRequests`, `Services` (shared scenario steps), `EventHandlers` |
+| Application, other areas | `Services`, `Models`, `Enums`, `Options`, `Validators` and their own hierarchies (`Routes`, `Plans`, `BotNotifications`) |
+| Application, shared | `Ports/{Persistence,Dating,Services}`, `Abstractions/{Messaging,Events,Errors}` |
+| Infrastructure | per adapter (`Telegram`, `MiniApp`, `Notifier`, `Llm`, `Platform`, `Persistence`), inside: `Services` (implementations), `Models` (DTOs), `Enums`, `Options`, `Validators`, `Abstractions` (internal seams between adapters, e.g. `IWebAppLauncher`); `Persistence` has `Records`, `Repositories`, `UnitOfWork`, `Mapping`, `Migrations` |
+| Worker | `Workers` (background services), `Configuration` (settings check at start-up) |
+| Tests | `Fakes`, `Support` and per-area folders |
 
-## Стиль C#
+## C# style
 
-- Форматирование задаёт `.editorconfig`: LF, file-scoped namespace, `using` с `System` первым и без пустых строк. Неиспользуемый `using` и битый `cref` ломают сборку.
-- Классы и записи `sealed`. Реализации (обработчики, адаптеры, репозитории) `internal`; контракты (команды, модели, порты, настройки) `public`.
-- Зависимости приходят через primary constructor.
-- Метод из одного выражения пишется через `=>`.
-- Коллекции: в моделях и value objects `ImmutableArray<T>`, в сигнатурах `IReadOnlyList<T>` / `IReadOnlyCollection<T>`; литералы `[]` и `[.. items]`; статические таблицы — `FrozenDictionary`.
-- Регулярные выражения — `[GeneratedRegex]` в `partial`-классе.
-- Имена: приватные поля `_camelCase`, `static readonly` — PascalCase (`Validator`), асинхронные методы с суффиксом `Async`, токен отмены называется `ct` и стоит последним.
-- Числа и даты в строку — через `CultureInfo.InvariantCulture`.
-- Время берётся из `IClock` (`UtcNow`, `DelayAsync`), случайность — из `IJitter`, новые id — `Guid.CreateVersion7(clock.UtcNow)`. Так тесты управляют временем.
-- Комментарий — `<summary>` в одну строку. Он объясняет то, чего не говорит имя: причину, инвариант, откуда пришли данные. У записей `<param>` пишется только для неочевидных параметров. Члены с говорящим именем остаются без комментария.
+- `.editorconfig` sets the formatting: LF, file-scoped namespaces, `using`s with `System` first and no blank lines. An unused `using` or a broken `cref` fails the build.
+- Classes and records are `sealed`. Implementations (handlers, adapters, repositories) are `internal`; contracts (commands, models, ports, options) are `public`.
+- Dependencies arrive through a primary constructor.
+- A single-expression member uses `=>`.
+- Collections: `ImmutableArray<T>` in models and value objects, `IReadOnlyList<T>` / `IReadOnlyCollection<T>` in signatures; literals `[]` and `[.. items]`; static lookup tables as `FrozenDictionary`.
+- Regular expressions: `[GeneratedRegex]` in a `partial` class.
+- Names: private fields `_camelCase`, `static readonly` in PascalCase (`Validator`), async methods end in `Async`, the cancellation token is named `ct` and comes last.
+- Numbers and dates turn into strings with `CultureInfo.InvariantCulture`.
+- Time comes from `IClock` (`UtcNow`, `DelayAsync`), randomness from `IJitter`, new ids from `Guid.CreateVersion7(clock.UtcNow)`. This lets tests control time.
+- A comment is a one-line `<summary>` explaining what the name does not: the reason, the invariant, where the data came from. Records get `<param>` only for non-obvious parameters. Members with a telling name stay uncommented.
 
-## Ошибки: Result вместо исключений
+## Errors: Result instead of exceptions
 
-- Всё, что может не получиться, возвращает `Result<T, Error>` или `UnitResult<Error>`. Отсутствие значения — `Maybe<T>`. Nullable `T?` остаётся в записях EF, JSON-моделях и классах настроек.
-- `Error` создаётся фабрикой по типу: `Validation`, `NotFound`, `Conflict`, `External`, `RateLimited` (с `RetryAfter`), `Unexpected`.
-- Ошибки области лежат в статическом классе `<Область>Errors` в её корне; общие — в `Application/Abstractions/Errors` (`ServiceErrors`, `DeliveryErrors`). Постоянная ошибка — `static readonly` поле, ошибка с параметрами — статический метод.
-- Код ошибки — `область.snake_case` (`match.already_messaged`, `miniapp.unavailable`). `Message` читает владелец в уведомлении.
-- Повтор решает код. `ErrorClassifier.IsRetryable` повторяет `RateLimited`, `service.paused` и любой код, оканчивающийся на `.unavailable` (с точкой). Такой код получает только временный сбой до передачи текста: сообщение бота остаётся необработанным, и сервис возьмётся за него снова. Окончательный отказ называется иначе, например `miniapp.chat_unavailable`.
-- At-most-once. Если связь оборвалась после передачи текста, адаптер возвращает `DeliveryErrors.OutcomeUnknown` (через `AppErrors.SendOutcomeUnknown` / `TelegramErrors.SendOutcomeUnknown`). Такое сообщение не повторяется ни при каких условиях.
-- Исключения живут только на границе адаптера: там ловятся конкретные типы с фильтром `when` и превращаются в `Error` (`Db.TryAsync`, `TashdateAppClient`). `OperationCanceledException` от собственного `ct` пробрасывается дальше. Domain и Application сообщают об ошибке значением. `GetValueOrThrow()` вызывается после проверки `HasValue` или там, где значение гарантирует инвариант.
-- Обработчик — railway-цепочка `Create → Bind → Map → Tap`; лог ошибки пишется в `TapError`.
+- Anything that can fail returns `Result<T, Error>` or `UnitResult<Error>`. A missing value is `Maybe<T>`. Nullable `T?` stays in EF records, JSON models and options classes.
+- An `Error` is made by the factory of its type: `Validation`, `NotFound`, `Conflict`, `External`, `RateLimited` (with `RetryAfter`), `Unexpected`.
+- An area's errors live in a static `<Area>Errors` class at the area root; shared ones in `Application/Abstractions/Errors` (`ServiceErrors`, `DeliveryErrors`). A fixed error is a `static readonly` field, an error with parameters a static method.
+- Error code: `area.snake_case` (`match.already_messaged`, `miniapp.unavailable`). The owner reads `Message` in a notification.
+- The code decides the retry. `ErrorClassifier.IsRetryable` retries `RateLimited`, `service.paused` and any code ending in `.unavailable` (with the dot). Give such a code only to a transient failure before the text was handed over: the bot message stays unprocessed and the service takes it up again. A final refusal gets another name, e.g. `miniapp.chat_unavailable`.
+- At-most-once. If the connection broke after the text was handed over, the adapter returns `DeliveryErrors.OutcomeUnknown` (via `AppErrors.SendOutcomeUnknown` / `TelegramErrors.SendOutcomeUnknown`). Such a message is never retried.
+- Exceptions live only at the adapter boundary: catch specific types with a `when` filter and turn them into an `Error` (`Db.TryAsync`, `TashdateAppClient`). `OperationCanceledException` from our own `ct` propagates. Domain and Application report failures as values. `GetValueOrThrow()` is called after a `HasValue` check or where an invariant guarantees the value.
+- A handler is a railway chain `Create → Bind → Map → Tap`; the error is logged in `TapError`.
 
 ## Domain
 
@@ -78,55 +78,55 @@ public sealed record Age
 }
 ```
 
-- `sealed record` с приватным конструктором; объект создаётся только через `Create`, который валидирует вход через `ValidateAndCreate`.
-- Валидатор лежит в `Validators/`, у каждого правила `WithErrorCode("<имя>.<правило>")`. Границы — константы самого value object (`Age.Min`), валидатор ссылается на них.
-- FluentValidation превращается в `Error` в одном месте — `ValidationExtensions`.
+- A `sealed record` with a private constructor; the only way in is `Create`, which validates the input through `ValidateAndCreate`.
+- The validator lives in `Validators/`, every rule has `WithErrorCode("<name>.<rule>")`. Limits are constants of the value object itself (`Age.Min`), and the validator refers to them.
+- FluentValidation results become an `Error` in one place: `ValidationExtensions`.
 
-### Агрегат
+### Aggregate
 
-- `sealed class X : AggregateRoot<XId>` с приватным конструктором.
-- `Create(XInput)` проверяет вход и поднимает событие создания. `Restore(XState)` восстанавливает агрегат из хранилища без событий; несогласованные данные дают ошибку `<область>.corrupted`. `XInput` и `XState` — записи в `States/`.
-- Поведение возвращает `UnitResult<Error>`, инварианты проверяет `Guard.Require(условие, XErrors.Y)`, события поднимаются через `Raise`.
-- Переходы статусов описаны таблицей разрешённых переходов (`Match.AllowedTransitions`).
+- `sealed class X : AggregateRoot<XId>` with a private constructor.
+- `Create(XInput)` validates the input and raises the creation event. `Restore(XState)` rebuilds the aggregate from storage without events; inconsistent data gives an `<area>.corrupted` error. `XInput` and `XState` are records in `States/`.
+- Behaviour returns `UnitResult<Error>`, checks invariants with `Guard.Require(condition, XErrors.Y)` and raises events through `Raise`.
+- Status changes follow a table of allowed transitions (`Match.AllowedTransitions`).
 
-### Доменные события
+### Domain events
 
-- `sealed record` в прошедшем времени (`LikeReceived`, `MessageSent`) с последним полем `DateTimeOffset OccurredAt`, в папке `Events/`.
-- Unit of work рассылает события после коммита в `IDomainEventHandler` (`NotifyOwner`).
+- A past-tense `sealed record` (`LikeReceived`, `MessageSent`) whose last field is `DateTimeOffset OccurredAt`, in `Events/`.
+- The unit of work dispatches events after the commit to `IDomainEventHandler` (`NotifyOwner`).
 
 ## Application
 
-### Команды и запросы
+### Commands and queries
 
-| Что | Где | Вид |
+| What | Where | Shape |
 | --- | --- | --- |
-| Команда | `UseCases/Commands` | `public sealed record XCommand(Guid MatchId) : ICommand<TResult>` |
-| Запрос | `UseCases/Queries` | `XQuery`, тот же `ICommand<TResult>` |
-| Валидатор | `UseCases/Validators` | `XCommandValidator : AbstractValidator<XCommand>` |
-| Обработчик | `UseCases/Handlers` | `internal sealed class XHandler : ICommandHandler<XCommand, TResult>` |
-| Результат | `UseCases/Models`, `UseCases/Enums` | запись или перечисление исхода |
+| Command | `UseCases/Commands` | `public sealed record XCommand(Guid MatchId) : ICommand<TResult>` |
+| Query | `UseCases/Queries` | `XQuery`, the same `ICommand<TResult>` |
+| Validator | `UseCases/Validators` | `XCommandValidator : AbstractValidator<XCommand>` |
+| Handler | `UseCases/Handlers` | `internal sealed class XHandler : ICommandHandler<XCommand, TResult>` |
+| Result | `UseCases/Models`, `UseCases/Enums` | a record or an outcome enum |
 
-- Поля команды — примитивы; обработчик превращает их в value objects.
-- Регистрация: `services.AddCommandHandler<XCommand, TResult, XHandler>()` в `Application/DependencyInjection.cs`. Валидатор подключится сам и выполнится декоратором; ошибка валидации вернётся как `Validation`-ошибка `XCommand.invalid`.
-- Каждая команда выполняется через `ICommandDispatcher.SendAsync` в своём DI-scope со своим `DbContext`.
-- Шаг, общий для нескольких обработчиков, — scoped-сервис в `UseCases/Services`, регистрируется там же.
+- Command fields are primitives; the handler turns them into value objects.
+- Registration: `services.AddCommandHandler<XCommand, TResult, XHandler>()` in `Application/DependencyInjection.cs`. The validator is picked up automatically and runs as a decorator; a failure comes back as a `Validation` error `XCommand.invalid`.
+- Every command runs through `ICommandDispatcher.SendAsync` in its own DI scope with its own `DbContext`.
+- A step shared by several handlers is a scoped service in `UseCases/Services`, registered in the same file.
 
-### Порты
+### Ports
 
-- Сигнатуры порта говорят доменными типами и `Result`. HTTP, TL-объекты и JSON остаются в адаптере.
-- Репозиторий: `FindXAsync` возвращает `Result<Maybe<T>, Error>`, `AddAsync` и `RemoveAsync` только отмечают изменения. Сохраняет всё одним коммитом `IUnitOfWork.CommitAsync`.
+- Port signatures speak domain types and `Result`. HTTP, TL objects and JSON stay in the adapter.
+- Repository: `FindXAsync` returns `Result<Maybe<T>, Error>`; `AddAsync` and `RemoveAsync` only mark changes. `IUnitOfWork.CommitAsync` saves everything in one commit.
 
-### Уведомления владельцу
+### Owner notifications
 
-- Новое уведомление — наследник `OwnerNotification` в `Application/Notifications`. Текст и кнопки собирает `NotificationFormatter` (`Infrastructure/Notifier/Services`), нажатия разбирает `OwnerBotPoller.ParseCallback`.
-- Уведомление о человеке всегда несёт его фото (`profile.Photo`).
+- A new notification is an `OwnerNotification` subtype in `Application/Notifications`. `NotificationFormatter` (`Infrastructure/Notifier/Services`) builds the text and buttons, `OwnerBotPoller.ParseCallback` parses button presses.
+- A notification about a person always carries their photo (`profile.Photo`).
 
 ## Infrastructure
 
-- У каждой внешней системы своя папка-адаптер. Реализация — `internal sealed`, регистрация — в `Infrastructure/DependencyInjection.cs`.
-- Ответы внешних API читаются в DTO из `Models/`, в доменные типы их переводит адаптер.
+- Every external system has its own adapter folder. The implementation is `internal sealed` and registered in `Infrastructure/DependencyInjection.cs`.
+- External API responses are read into DTOs from `Models/`; the adapter maps them to domain types.
 
-### Настройки
+### Options
 
 ```csharp
 public sealed class MiniAppClientOptions
@@ -138,44 +138,44 @@ public sealed class MiniAppClientOptions
 }
 ```
 
-- Класс `XOptions` с константой `Section` и `init`-свойствами с рабочими значениями по умолчанию; лежит в `Options/` своей области.
-- `XOptionsValidator` лежит в `Validators/` рядом. Сообщение называет ключ настройки: `"MiniAppClient:Url — пусто или https-адрес Mini App"`.
-- Регистрация в `src/DateBot.Worker/Program.cs`: `builder.Services.AddValidatedOptions<XOptions>(builder.Configuration, XOptions.Section)`. С неверной настройкой сервис не стартует и перечисляет ошибки.
-- Новая настройка появляется в `appsettings.json` со значением по умолчанию и в таблице README.
+- An `XOptions` class with a `Section` constant and `init` properties with working defaults, in its area's `Options/`.
+- `XOptionsValidator` sits next to it in `Validators/`. The message names the setting key: `"MiniAppClient:Url — пусто или https-адрес Mini App"`.
+- Registration in `src/DateBot.Worker/Program.cs`: `builder.Services.AddValidatedOptions<XOptions>(builder.Configuration, XOptions.Section)`. With an invalid setting the service refuses to start and lists the errors.
+- A new setting appears in `appsettings.json` with its default and in the README table (`README.md` and `README.ru.md`).
 
-### Хранение
+### Persistence
 
-- EF Core + SQLite. Таблицы маппятся на изменяемые записи в `Persistence/Records`. `RecordMapper` собирает из них агрегат через доменный `Restore`, поэтому битая строка даёт `storage.corrupted`, а не битый объект. `Maybe<T>` хранится через запись с nullable-полем: value converter EF для `Maybe<T>` в nullable-колонку не работает.
-- Репозитории отмечают агрегаты в `ChangeSet`. `EfUnitOfWork` сохраняет их одной транзакцией и после этого рассылает доменные события.
-- Исключения базы превращаются в `Error` через `Db.TryAsync`.
-- Tombstones: при удалении человека (`RemoveAsync`, очистка по сроку) в `ForgottenPeople` остаются все его `IdentityKeys`; на эти ключи сервис больше не отвечает.
-- Изменение схемы:
-  1. Поменять запись и конфигурацию `DateBotDbContext`.
+- EF Core + SQLite. Tables map to mutable records in `Persistence/Records`. `RecordMapper` builds the aggregate from them through the domain `Restore`, so a broken row gives `storage.corrupted`, not a broken object. `Maybe<T>` is stored through a record with a nullable field: an EF value converter from `Maybe<T>` to a nullable column does not work.
+- Repositories track aggregates in `ChangeSet`. `EfUnitOfWork` saves them in one transaction and then dispatches the domain events.
+- Database exceptions become an `Error` through `Db.TryAsync`.
+- Tombstones: when a person is deleted (`RemoveAsync`, retention purge), all their `IdentityKeys` stay in `ForgottenPeople`; the service never answers those keys again.
+- Schema change:
+  1. Change the record and the `DateBotDbContext` configuration.
   2. `dotnet ef migrations add <Name> --project src/DateBot.Infrastructure --startup-project src/DateBot.Worker --output-dir Persistence/Migrations`.
-  3. Обновление данных (`migrationBuilder.Sql`) — отдельной миграцией после миграции схемы: SQLite пересобирает таблицу, и EF предупреждает о SQL, который выполняется до пересборки.
-  4. `dotnet ef migrations has-pending-model-changes --project src/DateBot.Infrastructure --startup-project src/DateBot.Worker` должна ответить, что изменений нет.
-- Миграции — сгенерированный код. Руками в них дописывается только SQL обновления данных и `<summary>`.
+  3. A data update (`migrationBuilder.Sql`) goes into its own migration after the schema migration: SQLite rebuilds the table, and EF warns about SQL that runs before the rebuild.
+  4. `dotnet ef migrations has-pending-model-changes --project src/DateBot.Infrastructure --startup-project src/DateBot.Worker` must report no changes.
+- Migrations are generated code. Hand edits are limited to the data-update SQL and the `<summary>`.
 
 ## Worker
 
-- `Workers/` — `BackgroundService`-циклы, которые вызывают команды через `ICommandDispatcher`. Ошибка команды пишется в лог, и цикл ждёт: `RetryAfter` для `RateLimited`, иначе растущую паузу `Backoff`. Сервис продолжает работу.
-- Порядок в `Program.cs`: настройки → `AddApplication` → `AddInfrastructure` → фоновые сервисы → `DatabaseInitializer` перед `RunAsync`.
+- `Workers/` holds `BackgroundService` loops that call commands through `ICommandDispatcher`. A command error is logged and the loop waits: `RetryAfter` for `RateLimited`, otherwise a growing `Backoff` pause. The service keeps running.
+- Order in `Program.cs`: options → `AddApplication` → `AddInfrastructure` → background services → `DatabaseInitializer` before `RunAsync`.
 
-## Логи
+## Logging
 
-- `ILogger<T>` с шаблоном и именованными параметрами: `logger.LogWarning("App like of {Name} failed: {Error}", name, error)`.
-- Уровни: `Debug` — ожидаемый пропуск; `Information` — вехи работы (вход, итог прохода); `Warning` — не удалась одна операция, проход идёт дальше; `Error` — сорвался целый проход или вход, цикл уходит на повтор.
-- В лог пишутся id, имена и коды ошибок. Секреты, `initData`, токены и ключи API в лог не попадают.
+- `ILogger<T>` with a message template and named placeholders: `logger.LogWarning("App like of {Name} failed: {Error}", name, error)`.
+- Levels: `Debug` for an expected skip; `Information` for milestones (sign-in, pass summary); `Warning` when one operation failed and the pass goes on; `Error` when a whole pass or sign-in failed and the loop goes into retry.
+- Logs carry ids, names and error codes. Secrets, `initData`, tokens and API keys stay out of the log.
 
-## Тесты
+## Tests
 
-- xUnit + FluentAssertions 7 (8.x требует коммерческую лицензию) + NetArchTest.
-- Проекты повторяют слои:
-  - `Domain.Tests` — чистый домен;
-  - `Application.Tests` — сценарии через `TestHost`: настоящие обработчики, DI и валидаторы, порты — фейки из `Fakes/`;
-  - `Infrastructure.Tests` — адаптеры: настоящий файл SQLite с настоящими миграциями, HTTP через `StubHttpHandler`, привязка и проверка настроек.
-- Класс `public sealed class XTests`. Имя теста — утверждение о поведении в snake_case: `Two_namesakes_without_username_are_not_guessed_between`.
-- Тест сценария проверяет наблюдаемый исход: что лежит в хранилище, что получил уведомитель, какие вызовы ушли в фейк площадки. Неочевидную причину ожидания объясняет аргумент `because`.
-- Сообщения бота берутся из `Support/Samples`; они построены по реальным анонимизированным сообщениям (`docs/samples`).
-- Исправление бага начинается с теста, который красный без исправления.
-- Фейк на каждый порт лежит в `Fakes/`, один тип на файл.
+- xUnit + FluentAssertions 7 (8.x needs a commercial licence) + NetArchTest.
+- Projects mirror the layers:
+  - `Domain.Tests`: pure domain;
+  - `Application.Tests`: scenarios through `TestHost` with real handlers, DI and validators, and fakes from `Fakes/` for the ports;
+  - `Infrastructure.Tests`: adapters on a real SQLite file with the real migrations, HTTP through `StubHttpHandler`, settings binding and validation.
+- Class `public sealed class XTests`. A test name is a statement about behaviour in snake_case: `Two_namesakes_without_username_are_not_guessed_between`.
+- A scenario test checks the observable outcome: what is in the store, what the notifier received, which calls reached the platform fake. The `because` argument explains a non-obvious expectation.
+- Bot messages come from `Support/Samples`, built from real anonymised messages (`docs/samples`).
+- A bug fix starts with a test that is red without the fix.
+- Each port has a fake in `Fakes/`, one type per file.

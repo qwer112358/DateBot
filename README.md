@@ -1,16 +1,18 @@
 # DateBot
 
-Локальный .NET-сервис, который отвечает на лайки в сервисах знакомств: разбирает анкету и отвечает лайком и персональным сообщением на «вас лайкнули», только сообщением на «взаимную симпатию». Обо всём важном вам пишет отдельный бот-уведомитель.
+A local .NET service that answers likes in dating services. It reads the profile and answers "you were liked" with a like back and a personal message, and a "mutual match" with a message only. A separate notifier bot tells you about everything important.
 
-Первая поддерживаемая площадка — Tashdate: сервис работает как userbot под вашим Telegram-аккаунтом, читает уведомления бота Tashdate и от вашего имени заходит в его Mini App, где видны входящие лайки. Badoo запланирован следующим. Генерация ответа, хранение, лимиты и бот-уведомитель не привязаны к Tashdate; всё специфичное для Tashdate собрано в портах `ITashdateClient` (чат с ботом) и `ITashdateApp` (Mini App), их адаптерах и секциях настроек `Parsing` и `MiniAppClient`. Для второй площадки понадобятся свои адаптеры и признак площадки у анкеты (`TashdateUserId` → общий идентификатор).
+Russian version: [README.ru.md](README.ru.md).
 
-Реализация по ТЗ «userbot для Tashdate (авто-ответ на лайки)». Формат уведомлений бота сверен с реальными сообщениями. API Mini App взят из её кода и проверен запросами на чтение; ответы на лайк и отправку в чат приложения подтвердит первый реальный запуск.
+The first supported platform is Tashdate. The service runs as a userbot under your Telegram account, reads the Tashdate bot's notifications and, on your behalf, opens its Mini App, where incoming likes are visible. Badoo is planned next. Reply generation, storage, limits and the notifier bot are not tied to Tashdate. Everything Tashdate-specific sits behind the ports `ITashdateClient` (chat with the bot) and `ITashdateApp` (Mini App), their adapters and the `Parsing` and `MiniAppClient` settings sections. A second platform needs its own adapters and a platform marker on the profile (`TashdateUserId` → a generic id).
 
-## Быстрый старт
+Built from the spec «userbot для Tashdate (авто-ответ на лайки)». The bot's notification format was checked against real messages. The Mini App API was taken from its code and checked with read requests; the first real run will confirm the responses to a like and to an in-app chat message.
 
-Нужны .NET 10 SDK, `api_id` и `api_hash` с [my.telegram.org](https://my.telegram.org), токен бота-уведомителя от BotFather и (по желанию) ключ Anthropic API.
+## Quick start
 
-1. Секреты кладутся в user-secrets, в репозиторий они не попадают:
+You need the .NET 10 SDK, `api_id` and `api_hash` from [my.telegram.org](https://my.telegram.org), a notifier bot token from BotFather and (optionally) an Anthropic API key.
+
+1. Secrets go into user-secrets and never reach the repository:
 
 ```bash
 cd src/DateBot.Worker
@@ -19,144 +21,144 @@ dotnet user-secrets set "Telegram:ApiHash" "0123456789abcdef0123456789abcdef"
 dotnet user-secrets set "Telegram:PhoneNumber" "+998901234567"
 dotnet user-secrets set "Notifier:BotToken" "123456:ABC..."
 dotnet user-secrets set "Anthropic:ApiKey" "sk-ant-..."
-dotnet user-secrets set "Replies:Owner:Name" "Ваше имя"
-dotnet user-secrets set "Replies:Owner:About" "чем занимаетесь"
+dotnet user-secrets set "Replies:Owner:Name" "Your name"
+dotnet user-secrets set "Replies:Owner:About" "what you do"
 ```
 
-2. Первый запуск делается в консоли: Telegram пришлёт код входа, его нужно ввести (и пароль двухэтапной проверки, если он включён). После этого сессия хранится в `%LOCALAPPDATA%\DateBot\telegram.session`, вне репозитория.
+2. Run it the first time in a console: Telegram sends a login code to type in (and asks for the two-step verification password if it is on). The session is then kept in `%LOCALAPPDATA%\DateBot\telegram.session`, outside the repository.
 
 ```bash
 dotnet run --project src/DateBot.Worker
 ```
 
-3. Напишите боту-уведомителю `/start`. Сервис запомнит чат и будет принимать команды только от того Telegram-аккаунта, под которым вошёл userbot.
+3. Send `/start` to the notifier bot. The service remembers the chat and takes commands only from the Telegram account the userbot is signed in as.
 
-Без секретов сервис не стартует и перечисляет, чего не хватает (проверка конфигурации FluentValidation при старте).
+Without secrets the service refuses to start and lists what is missing (FluentValidation config check at start-up).
 
-## Команды бота-уведомителя
+## Notifier bot commands
 
-| Команда или кнопка | Что делает |
+| Command or button | What it does |
 | --- | --- |
-| `/start` | Регистрирует чат для уведомлений; если сервис остановлен, возобновляет работу |
-| `/stop` | Экстренная остановка: новые лайки и сообщения не отправляются, флаг переживает перезапуск |
-| `/status` | Режим, курсор, действия за час, счётчики сообщений бота и анкет |
-| «✈️ В Telegram» / «💬 В приложении» / «⏭ Пропустить» | Решение по черновику в режиме `Confirm`: куда отправить сообщение или не отправлять. Показываются только каналы, которые доходят до человека: Telegram — если известен `@username`, приложение — если известен id анкеты |
-| «🔄 Найти в приложении» | На черновике, который отправить некуда (у человека нет `@username`, а в приложении он не найден): ищет ещё раз и, если нашёл, присылает карточку с кнопкой «💬 В приложении» |
-| «🗑 Забыть» | Удаляет всё об этом человеке: анкету, действия, исходное уведомление, фото. Остаётся только отпечаток id, чтобы ему не написать повторно |
+| `/start` | Registers the chat for notifications; resumes work if the service was stopped |
+| `/stop` | Emergency stop: no new likes or messages go out; the flag survives a restart |
+| `/status` | Mode, cursor, actions in the last hour, counters of bot messages and profiles |
+| «✈️ В Telegram» / «💬 В приложении» / «⏭ Пропустить» | Decision on a draft in `Confirm` mode: where to send the message, or not to send it. Only channels that reach the person are shown: Telegram if the `@username` is known, the app if the profile id is known |
+| «🔄 Найти в приложении» | On a draft with nowhere to send (the person has no `@username` and was not found in the app): searches again and, if found, sends a card with the «💬 В приложении» button |
+| «🗑 Забыть» | Deletes everything about the person: profile, actions, the original notification, photo. Only a fingerprint of the id stays, so the person is never messaged again |
 
-## Как это работает
+## How it works
 
-1. При старте сервис входит в Telegram, находит чат с ботом Tashdate и дочитывает историю от курсора (`messages.getHistory` с `min_id`).
-2. Каждое сообщение бота сначала сохраняется как есть (таблица `BotMessages` в SQLite-файле `%LOCALAPPDATA%\DateBot\datebot.db`), затем разбирается по правилам из конфига.
-3. Для новой анкеты создаётся агрегат `Match`; лайк в ответ и сообщение пишутся в журнал `Actions` со статусом `Pending` до выполнения.
-4. Финальный статус сообщения и сдвиг курсора сохраняются в одной транзакции. FLOOD_WAIT, часовой лимит, `/stop` и сетевые сбои оставляют сообщение необработанным, и оно повторяется позже без повторения уже сделанных шагов.
-5. После чата бота сервис открывает Mini App от вашего имени (как кнопка «Открыть знакомства»), читает вкладку «Лайки» и отвечает на новые лайки: загружает полную анкету, ставит ❤ в ответ с паузой и лимитом, и, раз лайк в ответ сразу даёт мэтч, готовит сообщение.
-6. В режиме `Confirm` (так в поставляемом конфиге) черновик с анкетой и фото приходит в бот-уведомитель, а вы выбираете, куда его отправить: в личку Telegram или в чат приложения. Если канал отказал (например, человек закрыл личку), карточка приходит снова, чтобы выбрать другой.
-7. Дальше сервис ждёт новых сообщений бота (живые обновления) и раз в `PollInterval` перечитывает чат; лайки в приложении проверяются раз в `MiniApp:PollInterval` и сразу после намёка бота «Тобой интересуются».
+1. At start the service signs in to Telegram, finds the chat with the Tashdate bot and reads the history from the cursor (`messages.getHistory` with `min_id`).
+2. Every bot message is first stored as is (table `BotMessages` in the SQLite file `%LOCALAPPDATA%\DateBot\datebot.db`), then parsed by the rules from the config.
+3. A new profile creates a `Match` aggregate; the like back and the message are written to the `Actions` journal as `Pending` before they run.
+4. The message's final status and the cursor move are saved in one transaction. FLOOD_WAIT, the hourly limit, `/stop` and network failures leave the message unprocessed; it is retried later without repeating the steps already done.
+5. After the bot chat the service opens the Mini App on your behalf (like the «Открыть знакомства» button does), reads the «Лайки» tab and answers new likes: loads the full profile, likes back with a pause and within the limit, and, since a like back gives a match at once, prepares a message.
+6. In `Confirm` mode (the shipped config) the draft with the profile and photo comes to the notifier bot, and you choose where to send it: Telegram DM or the in-app chat. If a channel refuses (say, the person closed DMs), the card comes again so you can pick another.
+7. Then the service waits for new bot messages (live updates) and re-reads the chat every `PollInterval`; app likes are checked every `MiniApp:PollInterval` and right after the bot's «Тобой интересуются» hint.
 
-Бывают карточки мэтча без `@username`: у человека его нет. Тогда в Telegram написать нельзя, и сервис ищет человека среди мэтчей приложения без `@username` с тем же именем. Если такой один, карточка приходит с кнопкой «💬 В приложении». Если его нет или тёзок несколько, черновик всё равно приходит, с пометкой «отправить некуда», чтобы о мэтче вы узнали и могли написать сами. Работает это и в режиме `Auto`.
+Some match cards come without `@username` because the person has none. Telegram is then out, and the service looks for the person among the app's matches without `@username` with the same name. If there is exactly one, the card comes with the «💬 В приложении» button. If there is none, or there are several namesakes, the draft still comes, marked "nowhere to send", so you learn about the match and can write yourself. This works in `Auto` mode too.
 
-Один человек может прийти и лайком из приложения, и карточкой мэтча в чате бота. Сервис узнаёт его по любому из ключей (id анкеты в приложении, `@username`), поэтому второй раз ему не пишет. Карточку мэтча для того, кого вы лайкнули сами в ленте, сервис дополняет анкетой из приложения: описание и интересы попадают в промпт, а чат приложения становится доступным каналом.
+One person can arrive both as an app like and as a match card in the bot chat. The service recognises them by any key (app profile id, `@username`) and does not message them twice. A match card for someone you liked yourself in the feed is enriched with the app profile: the bio and interests go into the prompt, and the in-app chat becomes an available channel.
 
-Фото анкеты скачивается сразу, как только человек появился (из чата бота или из приложения), и хранится локально в `%LOCALAPPDATA%\DateBot\photos`. Оно приходит в бот-уведомитель с каждым сообщением об этом человеке: черновиком, «отправлено», «лайк в ответ», ошибкой. Отдельно фото передаётся в Claude вместе с текстом анкеты: модель может опереться на нейтральную деталь (место, занятие, питомец), но внешность не обсуждает. `Replies:UsePhoto = false` отключает только передачу в Claude, в уведомлениях фото остаётся.
+The profile photo is downloaded as soon as the person appears (from the bot chat or the app) and kept locally in `%LOCALAPPDATA%\DateBot\photos`. It comes to the notifier bot with every message about that person: draft, "sent", "liked back", error. Separately the photo goes to Claude along with the profile text: the model may build on a neutral detail (a place, an activity, a pet) but does not discuss appearance. `Replies:UsePhoto = false` turns off only the Claude part; notifications keep the photo.
 
-## Настройка разбора уведомлений
+## Parsing configuration
 
-Правила живут в секции `Parsing` файла `src/DateBot.Worker/appsettings.json`:
+The rules live in the `Parsing` section of `src/DateBot.Worker/appsettings.json`:
 
-| Параметр | Назначение |
+| Setting | Purpose |
 | --- | --- |
-| `LikeMarkers` | Фрагменты текста «вас лайкнули» |
-| `MutualMarkers` | Фрагменты «взаимная симпатия»; проверяются первыми |
-| `IgnoreMarkers` | Служебные сообщения бота, на которые не нужно реагировать |
-| `LikeHintMarkers` | Намёки «вас лайкнули» без анкеты; по ним сразу проверяются лайки в приложении |
-| `ProfilePatterns` | Список regex анкеты с группами `name` (обязательна), `age`, `city`, `bio`; срабатывает первый подошедший |
-| `InterestsPattern`, `UsernamePattern`, `PersonIdPattern` | Интересы, `@username` из взаимной симпатии, стабильный id анкеты, если бот его показывает |
-| `UnknownMessages` | `ParseFailed` (по умолчанию, с уведомлением вам) или `Ignore` |
+| `LikeMarkers` | Text fragments of "you were liked" |
+| `MutualMarkers` | Fragments of "mutual match"; checked first |
+| `IgnoreMarkers` | Bot service messages that need no reaction |
+| `LikeHintMarkers` | "You were liked" hints without a profile; they trigger an app likes check at once |
+| `ProfilePatterns` | Profile regexes with groups `name` (required), `age`, `city`, `bio`; the first match wins |
+| `InterestsPattern`, `UsernamePattern`, `PersonIdPattern` | Interests, `@username` from a mutual match, a stable profile id if the bot shows one |
+| `UnknownMessages` | `ParseFailed` (default, with a notification to you) or `Ignore` |
 
-Если бот прислал что-то непонятное, оно уходит в `ParseFailed`, а вам приходит исходный текст и список кнопок. По нему правятся маркеры и шаблон. Без `PersonIdPattern` человек опознаётся по отпечатку «имя + возраст + город + начало описания», чтобы лайк и последующая взаимная симпатия считались одним человеком.
+If the bot sends something unrecognised, it goes to `ParseFailed`, and you get the original text and the list of buttons to adjust the markers and the pattern. Without `PersonIdPattern` a person is identified by the fingerprint "name + age + city + start of the bio", so a like and the later mutual match count as one person.
 
-Кнопки и способ отправки задаются в секции `Processing`:
+Buttons and the sending method are set in the `Processing` section:
 
-| Параметр | По умолчанию | Назначение |
+| Setting | Default | Purpose |
 | --- | --- | --- |
-| `Mode` | `Confirm` | `Confirm`: черновик приходит в бот-уведомитель, вы выбираете канал. `Auto`: отправка сразу в предпочтительный канал |
-| `LikedMeMessage` | `AfterLikeBack` | `OnMutual`: в сценарии A только лайк, сообщение после взаимной симпатии |
-| `MutualRoute` | `DirectToUser` | Предпочтительный канал в `Auto` и порядок кнопок: `DirectToUser` (Telegram), `AppChat` (чат приложения), `ViaBot` |
-| `Channels` | `Telegram, App` | Разрешённые каналы. Бот Tashdate текст анкетам не пересылает, поэтому `BotChat` выключен |
-| `MiniApp:Enabled` | `true` | Ответы на лайки и чат через Mini App; `false` — только чат с ботом |
-| `MiniApp:PollInterval` | 10 мин | Как часто проверять вкладку «Лайки» |
-| `MiniApp:MaxLikesPerPass` | 10 | Сколько новых лайков обработать за одну проверку |
-| `LikeBackButtons` | `❤, 👍, Лайк, Like, Yoqdi` | Подписи кнопки лайка (поиск по вхождению) |
-| `MessageButtons` | пусто | Кнопка «написать сообщение» перед отправкой текста боту |
-| `MinPause` / `MaxPause` | 5 с / 30 с | Случайная пауза перед каждым действием |
-| `MaxActionsPerHour` | 20 | Лимит лайков и сообщений в час (считается по журналу, переживает перезапуск) |
-| `FirstRunBackfill` | 0 | При самом первом запуске: насколько глубоко читать старую историю. 0 = только новые уведомления |
-| `RetentionDays` | 0 | Срок хранения данных, 0 = бессрочно |
-| `Filters` | выключены | Заготовка под фильтры по возрасту, городу и стоп-словам |
+| `Mode` | `Confirm` | `Confirm`: the draft comes to the notifier bot, you pick the channel. `Auto`: sent at once to the preferred channel |
+| `LikedMeMessage` | `AfterLikeBack` | `OnMutual`: scenario A only likes back; the message waits for the mutual match |
+| `MutualRoute` | `DirectToUser` | Preferred channel in `Auto` and the button order: `DirectToUser` (Telegram), `AppChat` (in-app chat), `ViaBot` |
+| `Channels` | `Telegram, App` | Allowed channels. The Tashdate bot does not forward text to profiles, so `BotChat` is off |
+| `MiniApp:Enabled` | `true` | Answers to likes and the chat go through the Mini App; `false` = bot chat only |
+| `MiniApp:PollInterval` | 10 min | How often to check the «Лайки» tab |
+| `MiniApp:MaxLikesPerPass` | 10 | How many new likes one check handles |
+| `LikeBackButtons` | `❤, 👍, Лайк, Like, Yoqdi` | Like button captions (substring match) |
+| `MessageButtons` | empty | "Write a message" button pressed before sending text to the bot |
+| `MinPause` / `MaxPause` | 5 s / 30 s | Random pause before each action |
+| `MaxActionsPerHour` | 20 | Limit of likes and messages per hour (counted from the journal, survives a restart) |
+| `FirstRunBackfill` | 0 | On the very first run: how deep to read the old history. 0 = new notifications only |
+| `RetentionDays` | 0 | Data retention, 0 = forever |
+| `Filters` | off | Groundwork for age, city and stop-word filters |
 
-Секция `MiniAppClient` отвечает за связь с Mini App: `Url` (пусто — адрес берётся из кнопки бота, на Railway он может смениться), `Language` (язык подписей интересов и полей анкеты), `Timeout`, `SessionLifetime` (как часто заново получать подписанный Telegram вход, `initData`), `UserAgent` (по умолчанию не отправляется).
+The `MiniAppClient` section configures the Mini App connection: `Url` (empty = taken from the bot's button; it may change on Railway), `Language` (language of the labels for interests and profile fields), `Timeout`, `SessionLifetime` (how often to get a fresh Telegram-signed sign-in, `initData`), `UserAgent` (not sent by default).
 
-Подписи кнопок сравниваются по целому слову и в порядке из конфига: `Лайк` не нажмёт `Дизлайк`. Если кнопки бота — обычная клавиатура (не inline), нажатие отправляет её текст. Это безопасно только для последнего сообщения бота, поэтому для старых сообщений такое нажатие пропускается с ошибкой, чтобы не лайкнуть другого человека. По той же причине текст без кнопки «написать» (`MessageButtons` пуст) уходит боту, только если его последнее сообщение — та самая анкета.
+Button captions are compared by whole word and in config order: `Лайк` never presses `Дизлайк`. If the bot's buttons are a reply keyboard (not inline), a press sends the button text. That is safe only for the bot's last message, so for older messages such a press is skipped with an error, to avoid liking another person. For the same reason, text without a "write" button (`MessageButtons` empty) goes to the bot only if its last message is that very profile.
 
-## Генерация сообщения
+## Message generation
 
-Текст пишет `claude-haiku-5-5` (меняется в `Anthropic:Model`) по анкете, фото и вашему профилю из `Replies:Owner`. Анкета передаётся в модель как данные внутри тегов `<profile>`, угловые скобки в ней экранируются, а в системных правилах сказано игнорировать любые инструкции из анкеты. Перед отправкой код проверяет текст: длину, язык, отсутствие ссылок, телефонов, `@упоминаний`, эмодзи-спама и следов инструкций. Если проверка не пройдена или API недоступен, уходит шаблон из `Replies:Templates` (или черновик в `Confirm`, если `InvalidReplyPolicy = Confirm`).
+The text is written by `claude-haiku-5-5` (set in `Anthropic:Model`) from the profile, the photo and your profile in `Replies:Owner`. The profile goes to the model as data inside `<profile>` tags with angle brackets escaped, and the system rules say to ignore any instructions in it. Before sending, code checks the text: length, language, no links, phone numbers, `@mentions`, emoji spam or traces of instructions. If the check fails or the API is down, a template from `Replies:Templates` goes out instead (or a draft in `Confirm`, if `InvalidReplyPolicy = Confirm`).
 
-## Этапы и как проверить
+## Stages and how to check them
 
-| Этап | Что включить | Критерий из ТЗ |
+| Stage | What to enable | Spec criterion |
 | --- | --- | --- |
-| 1. Подключение и чтение | Запустить с `Processing:Mode = Confirm`; сообщения бота пишутся в `BotMessages` | После перезапуска пропущенные сообщения подтянуты, дублей нет |
-| 2. Разбор анкет | Собрать 20–30 реальных уведомлений, анонимизировать, добавить в тесты парсера (`docs/samples`) | Ошибок разбора нет или они уходят в `ParseFailed` |
-| 3. Действия в `Confirm` | Проверить кнопки лайка и маршрут сообщения на 20–30 черновиках | 20–30 ответов подряд без ошибок и превышения лимитов |
-| 4. `Auto` и эксплуатация | `Mode = Auto`, автозапуск | Неделя без потерь уведомлений и FLOOD_WAIT сверх нормы |
+| 1. Connect and read | Run with `Processing:Mode = Confirm`; bot messages land in `BotMessages` | After a restart the missed messages are fetched, no duplicates |
+| 2. Profile parsing | Collect 20–30 real notifications, anonymise them, add them to the parser tests (`docs/samples`) | No parse errors, or they go to `ParseFailed` |
+| 3. Actions in `Confirm` | Check the like buttons and the message route on 20–30 drafts | 20–30 replies in a row without errors or exceeded limits |
+| 4. `Auto` and operation | `Mode = Auto`, autostart | A week without lost notifications and without excess FLOOD_WAIT |
 
-Автозапуск в Windows при входе в систему (после первого интерактивного входа):
+Autostart on Windows at logon (after the first interactive sign-in):
 
 ```bash
 dotnet publish src/DateBot.Worker -c Release -o C:/apps/tashdatebot
 schtasks /Create /TN "DateBot" /TR "C:\apps\tashdatebot\DateBot.Worker.exe" /SC ONLOGON /RL LIMITED
 ```
 
-Сессия, база и фото лежат в `%LOCALAPPDATA%\DateBot` и не зависят от папки публикации; логи пишутся в `logs/` рядом с приложением. Чтобы хранить данные рядом с приложением, задайте `Storage:DataDirectory` (например, `data`).
+The session, database and photos live in `%LOCALAPPDATA%\DateBot` regardless of the publish folder; logs go to `logs/` next to the app. To keep data next to the app, set `Storage:DataDirectory` (e.g. `data`).
 
-## Структура решения
+## Solution structure
 
-| Проект | Что внутри |
+| Project | Contents |
 | --- | --- |
-| `DateBot.Domain` | Агрегаты `Match`, `SyncCursor`, `InboxMessage`; value objects с фабриками и валидаторами FluentValidation; доменные события; `Error` |
-| `DateBot.Application` | Use cases (`ProcessBotMessage`, `LikeBack`, `GenerateAndSendReply`, `CatchUpHistory`, `SendReply`, команды владельца), порты, парсер, промпт, проверка ответа, лёгкий диспетчер с декоратором валидации |
-| `DateBot.Infrastructure` | WTelegramClient (userbot и вход в Mini App), HTTP-клиент Mini App, Telegram.Bot (уведомитель), Anthropic C# SDK, EF Core + SQLite с миграциями, часы, паузы, хранилище фото |
-| `DateBot.Worker` | Composition root: DI, конфиг, проверка настроек при старте, Serilog, фоновые сервисы |
-| `tests/*` | Домен, use cases на фейковых портах, парсер, тест архитектуры (NetArchTest), хранение на настоящей SQLite |
+| `DateBot.Domain` | Aggregates `Match`, `SyncCursor`, `InboxMessage`; value objects with factories and FluentValidation validators; domain events; `Error` |
+| `DateBot.Application` | Use cases (`ProcessBotMessage`, `LikeBack`, `GenerateAndSendReply`, `CatchUpHistory`, `SendReply`, owner commands), ports, parser, prompt, reply check, a light dispatcher with a validation decorator |
+| `DateBot.Infrastructure` | WTelegramClient (userbot and Mini App sign-in), Mini App HTTP client, Telegram.Bot (notifier), Anthropic C# SDK, EF Core + SQLite with migrations, clock, pauses, photo store |
+| `DateBot.Worker` | Composition root: DI, config, settings check at start-up, Serilog, background services |
+| `tests/*` | Domain, use cases on fake ports, parser, architecture test (NetArchTest), storage on real SQLite |
 
-Как разложены файлы и как писать код — в [CODING_STANDARDS.md](CODING_STANDARDS.md). Указания для агентов и критерии готовности — в [CLAUDE.md](CLAUDE.md).
+File layout and coding rules: [CODING_STANDARDS.md](CODING_STANDARDS.md). Agent instructions and the definition of done: [AGENTS.md](AGENTS.md).
 
-Тесты:
+Tests:
 
 ```bash
 dotnet test DateBot.slnx
 ```
 
-## Решения, принятые при реализации
+## Implementation decisions
 
-- **Хранение без EF value converters для `Maybe<T>`.** EF Core не позволяет хранить `Maybe<T>` в nullable-колонке через value converter (проверено прототипом). Поэтому таблицы маппятся на простые записи, а агрегат восстанавливается через те же доменные фабрики в `RecordMapper`. Битая строка в БД даёт ошибку `storage.corrupted`, а не битый объект, как и требует ТЗ.
-- **Таблица `BotMessages`.** Добавлена к трём таблицам из ТЗ: этап 1 требует хранить сырые сообщения, а `ParseFailed` должен ждать ручного разбора.
-- **Статус `Skipped`.** Добавлен для «Пропустить» в режиме `Confirm`.
-- **Не больше одного сообщения важнее повтора.** Если сервис упал или связь оборвалась посреди отправки, сообщение не повторяется (неизвестно, ушло ли оно): анкета уходит в `Failed`, вам приходит уведомление. Повторяются только отказы Telegram (FLOOD_WAIT и т. п.) и сбои до отправки. Незавершённый лайк повторяется, как в ТЗ; если кнопки лайка уже нет, лайк считается поставленным.
-- **Удалённые данные не открывают дорогу второму сообщению.** После «Забыть» и очистки по сроку в таблице `ForgottenPeople` остаётся только id человека (отпечаток анкеты), и на его новые уведомления сервис не отвечает.
-- **Данные вне репозитория.** Сессия, БД и фото по умолчанию в `%LOCALAPPDATA%\DateBot`: так их не удалит пересборка или `git clean`. В ТЗ база «рядом с приложением» — это включается одной настройкой `Storage:DataDirectory`.
-- **Первый запуск.** Без курсора сервис не читает весь чат с ботом с начала, а стартует с текущего момента (`FirstRunBackfill`).
-- **Чат бота и приложение — по очереди.** Один цикл сначала дочитывает чат с ботом, потом отвечает на лайки в приложении, поэтому карточка мэтча не может обогнать лайк в ответ, который её вызвал. Дневной лимит лайков приложения (30, после верификации 50) ставит на паузу только лайки: мэтчи и сообщения продолжают работать, а вам один раз приходит уведомление.
-- **Повтор в чат приложения узнаваем.** Каждое сообщение уходит с `client_key`, равным id анкеты в DateBot; приложение по нему отбрасывает дубль. При этом правило «неизвестно, ушло ли — не повторяем» действует и здесь.
-- **Вход в Mini App без браузера.** `initData` подписывает Telegram по запросу `messages.requestWebView` от вашего аккаунта, как при нажатии кнопки; пароль приложения не нужен и нигде не хранится.
-- **Свой диспетчер вместо MediatR.** Каждая команда выполняется в своём DI-scope, валидация входа — декоратором.
-- **FluentAssertions 7.x.** Последняя версия под Apache-2.0; 8.x требует коммерческую лицензию.
+- **No EF value converters for `Maybe<T>`.** EF Core cannot store `Maybe<T>` in a nullable column through a value converter (checked with a prototype). So tables map to plain records, and `RecordMapper` restores the aggregate through the same domain factories. A broken DB row gives a `storage.corrupted` error, not a broken object, as the spec requires.
+- **`BotMessages` table.** Added to the spec's three tables: stage 1 requires keeping raw messages, and `ParseFailed` messages must wait for manual review.
+- **`Skipped` status.** Added for «Пропустить» in `Confirm` mode.
+- **At most one message beats a retry.** If the service crashed or the connection broke mid-send, the message is not repeated (nobody knows whether it went out): the profile goes to `Failed` and you get a notification. Only Telegram refusals (FLOOD_WAIT and the like) and failures before sending are retried. An unfinished like is retried, as in the spec; if the like button is gone, the like counts as done.
+- **Deleted data never opens the way to a second message.** After «Забыть» and the retention purge only the person's id (profile fingerprint) stays in `ForgottenPeople`, and the service ignores their new notifications.
+- **Data outside the repository.** The session, DB and photos default to `%LOCALAPPDATA%\DateBot`, so a rebuild or `git clean` cannot remove them. The spec's "database next to the app" is one setting away: `Storage:DataDirectory`.
+- **First run.** Without a cursor the service starts from now instead of reading the whole bot chat from the beginning (`FirstRunBackfill`).
+- **Bot chat and app take turns.** One loop first reads the bot chat, then answers app likes, so a match card cannot overtake the like back that caused it. The app's daily like limit (30, 50 after verification) pauses only likes: matches and messages keep working, and you get one notification.
+- **A retry to the in-app chat is recognisable.** Each message carries a `client_key` equal to the DateBot profile id, and the app drops a duplicate by it. The rule "unknown whether sent, so no retry" still applies here.
+- **Mini App sign-in without a browser.** Telegram signs `initData` on a `messages.requestWebView` request from your account, just as when the button is pressed; no app password is needed or stored.
+- **Own dispatcher instead of MediatR.** Each command runs in its own DI scope; input validation is a decorator.
+- **FluentAssertions 7.x.** The last Apache-2.0 version; 8.x requires a commercial licence.
 
-## Бот Tashdate: что известно
+## The Tashdate bot: what is known
 
-Бот — `@Znakomstva_Tashkentt_bot` (задан в `Telegram:TashdateBotUsername`). При взаимной симпатии он присылает в чат фото с подписью:
+The bot is `@Znakomstva_Tashkentt_bot` (set in `Telegram:TashdateBotUsername`). On a mutual match it sends a photo with this caption:
 
 ```
 ❤️ У вас мэтч с {имя}!
@@ -165,13 +167,13 @@ dotnet test DateBot.slnx
 @{username}
 ```
 
-и inline-кнопку «💛 Открыть знакомства», которая открывает Mini App. Настройки по умолчанию разбирают именно этот формат: маркер «у вас мэтч», шаблон `мэтч с (?<name>…)!`, а человек опознаётся по `@username` (`PersonIdPattern`), потому что возраста, города и описания в карточке нет. Сообщение пишется в личку по `@username` и строится по имени и фото.
+and an inline «💛 Открыть знакомства» button that opens the Mini App. The default settings parse exactly this format: the marker «у вас мэтч», the pattern `мэтч с (?<name>…)!`, and the person is identified by `@username` (`PersonIdPattern`), because the card has no age, city or bio. The message goes to the DM by `@username` and is built from the name and the photo.
 
-О лайках бот пишет только намёком («Тобой интересуются», «тебя лайкнули N раза»), без анкеты; эти сообщения настроены как `LikeHintMarkers` и запускают проверку лайков в приложении. Кто лайкнул, видно только во вкладке «Лайки» внутри Mini App, поэтому сценарий A (лайк в ответ) делается через её API, а не через кнопки в чате. Лайки, скрытые до премиума, ответа не получают: у них нет id. Что известно об этом API, собрано в [docs/tashdate-miniapp-api.md](docs/tashdate-miniapp-api.md).
+About likes the bot only drops hints («Тобой интересуются», «тебя лайкнули N раза») without a profile; these messages are configured as `LikeHintMarkers` and trigger an app likes check. Who liked you is visible only in the «Лайки» tab inside the Mini App, so scenario A (like back) goes through its API rather than chat buttons. Likes hidden behind premium get no answer: they have no id. What is known about this API is in [docs/tashdate-miniapp-api.md](docs/tashdate-miniapp-api.md).
 
-## Что осталось выяснить
+## Open questions
 
-- Ответы `POST /api/like` и `POST /api/chat/send` взяты из кода Mini App; их подтвердит первый реальный лайк и первое сообщение (в логах будет «Signed in to the Mini App…»).
-- При первом запуске сервис ответит и на лайки, которые уже ждут во вкладке «Лайки» (не больше `MaxLikesPerPass` за проверку). Если этого не нужно, перед первым запуском поставьте `Processing:MiniApp:Enabled = false` и ответьте на них вручную.
-- Присылает ли бот в чат что-то ещё (служебные сообщения, рассылки); их стоит добавить в `IgnoreMarkers`, когда они придут в `ParseFailed`.
-- Правила Tashdate об автоматизации и выбор аккаунта: автоматизация пользовательского аккаунта и работа с внутренним API приложения могут привести к блокировке, лучше не использовать основной аккаунт.
+- The responses of `POST /api/like` and `POST /api/chat/send` come from the Mini App code; the first real like and message will confirm them (the log will show "Signed in to the Mini App…").
+- On the first run the service also answers the likes already waiting in the «Лайки» tab (at most `MaxLikesPerPass` per check). If you do not want that, set `Processing:MiniApp:Enabled = false` before the first run and answer them by hand.
+- Whether the bot sends anything else to the chat (service messages, broadcasts); add those to `IgnoreMarkers` when they show up in `ParseFailed`.
+- Tashdate's rules on automation, and the choice of account: automating a user account and using the app's internal API can get it banned, so better not use your main account.

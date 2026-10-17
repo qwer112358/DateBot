@@ -1,11 +1,11 @@
-# Примеры уведомлений Tashdate
+# Tashdate notification samples
 
-Сюда складываются анонимизированные примеры сообщений бота для тестов парсера (этап 2).
+Anonymised bot messages for the parser tests (stage 2) go here.
 
-Как подготовить пример:
+Preparing a sample:
 
-1. Возьмите исходный текст из уведомления `ParseFailed` бота-уведомителя или из таблицы `BotMessages` (`%LOCALAPPDATA%\DateBot\datebot.db`).
-2. Замените имя, город, описание, `@username` и любые id на вымышленные, сохранив структуру строк, знаки препинания, эмодзи и подписи кнопок.
-3. Сохраните как `like-01.txt`, `mutual-01.txt` и т. д.; кнопки допишите последней строкой в виде `[Кнопки: ❤️ | 👎 | 💌]`.
+1. Take the original text from a `ParseFailed` notification of the notifier bot or from the `BotMessages` table (`%LOCALAPPDATA%\DateBot\datebot.db`).
+2. Replace the name, city, bio, `@username` and any ids with made-up ones, keeping the line structure, punctuation, emoji and button captions.
+3. Save it as `like-01.txt`, `mutual-01.txt` and so on; add the buttons as the last line in the form `[Кнопки: ❤️ | 👎 | 💌]`.
 
-Затем добавьте случаи в `tests/DateBot.Application.Tests/Parsing/ParserTests.cs` (реальный формат бота — в `TashdateFormatTests.cs` рядом) и при необходимости поправьте секцию `Parsing` в `appsettings.json`.
+Then add the cases to `tests/DateBot.Application.Tests/Parsing/ParserTests.cs` (the bot's real format is covered by `TashdateFormatTests.cs` next to it) and, if needed, adjust the `Parsing` section in `appsettings.json`.

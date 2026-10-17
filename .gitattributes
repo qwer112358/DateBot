@@ -1,0 +1,8 @@
+# LF everywhere, as .editorconfig requires, whatever core.autocrlf says
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.db binary

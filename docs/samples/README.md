@@ -8,4 +8,4 @@
 2. Замените имя, город, описание, `@username` и любые id на вымышленные, сохранив структуру строк, знаки препинания, эмодзи и подписи кнопок.
 3. Сохраните как `like-01.txt`, `mutual-01.txt` и т. д.; кнопки допишите последней строкой в виде `[Кнопки: ❤️ | 👎 | 💌]`.
 
-Затем добавьте случаи в `tests/DateBot.Application.Tests/ParserTests.cs` и при необходимости поправьте секцию `Parsing` в `appsettings.json`.
+Затем добавьте случаи в `tests/DateBot.Application.Tests/Parsing/ParserTests.cs` (реальный формат бота — в `TashdateFormatTests.cs` рядом) и при необходимости поправьте секцию `Parsing` в `appsettings.json`.

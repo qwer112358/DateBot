@@ -1,6 +1,5 @@
 using CSharpFunctionalExtensions;
 using DateBot.Application.Abstractions.Messaging;
-using DateBot.Application.Notifications;
 using DateBot.Application.Ports.Persistence;
 using DateBot.Application.Ports.Services;
 using DateBot.Application.UseCases.Commands;
@@ -48,13 +47,5 @@ internal sealed class SendReplyHandler(
 
     /// <summary>The buttons of the old card were removed on press; without a new card the draft could not be sent at all.</summary>
     private Task OfferDraftAgainAsync(Match match, CancellationToken ct) =>
-        notifier.NotifyAsync(
-            new DraftReadyNotification(
-                match.Id,
-                match.Kind,
-                match.Profile,
-                match.DraftMessage.GetValueOrThrow().Text.GetValueOrThrow(),
-                match.IsMutual,
-                reply.ChannelsFor(match)),
-            ct);
+        reply.DraftCard(match).HasValue ? notifier.NotifyAsync(reply.DraftCard(match).GetValueOrThrow(), ct) : Task.CompletedTask;
 }

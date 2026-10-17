@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using CSharpFunctionalExtensions;
+using DateBot.Application.UseCases.Enums;
 using DateBot.Application.UseCases.OwnerRequests;
 using DateBot.Domain.Common.Errors;
 using DateBot.Domain.Matches.Enums;
@@ -67,6 +68,7 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
             "/stop" => new StopRequest(chatId, userId),
             "/status" => new StatusRequest(chatId, userId),
             "/likes" => new CheckLikesRequest(chatId, userId),
+            "/cancel" => new CancelRequest(chatId, userId),
             _ => new UnknownRequest(chatId, userId, text),
         };
     }
@@ -80,7 +82,9 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
             .Or(() => TryId(data, NotificationFormatter.LookUpPrefix).Map(id => (OwnerRequest)new LookUpContactsRequest(chatId, userId, id)))
             .Or(() => TryId(data, NotificationFormatter.ForgetPrefix).Map(id => (OwnerRequest)new ForgetRequest(chatId, userId, id)))
             .Or(() => TryId(data, NotificationFormatter.LikeBackPrefix).Map(id => (OwnerRequest)new LikeBackDecisionRequest(chatId, userId, id, Approve: true)))
-            .Or(() => TryId(data, NotificationFormatter.NoLikeBackPrefix).Map(id => (OwnerRequest)new LikeBackDecisionRequest(chatId, userId, id, Approve: false)));
+            .Or(() => TryId(data, NotificationFormatter.NoLikeBackPrefix).Map(id => (OwnerRequest)new LikeBackDecisionRequest(chatId, userId, id, Approve: false)))
+            .Or(() => TryId(data, NotificationFormatter.EditPrefix).Map(id => (OwnerRequest)new EditDraftRequest(chatId, userId, id, DraftEditKind.OwnText)))
+            .Or(() => TryId(data, NotificationFormatter.RewritePrefix).Map(id => (OwnerRequest)new EditDraftRequest(chatId, userId, id, DraftEditKind.Hint)));
 
     private async Task<Maybe<OwnerRequest>> ParseCallbackAsync(
         ITelegramBotClient client, CallbackQuery query, Message message, string data, CancellationToken ct)

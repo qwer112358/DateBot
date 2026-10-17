@@ -46,6 +46,8 @@ Without secrets the service refuses to start and lists what is missing (FluentVa
 | «❤️ Ответить» / «⏭ Пропустить» | Decision on a like card: like back, then the message as usual (a draft in `Confirm`); or no like, and the like stays in the app for a manual answer |
 | «✈️ В Telegram» / «💬 В приложении» / «⏭ Пропустить» | Decision on a draft in `Confirm` mode: where to send the message, or not to send it. Only channels that reach the person are shown: Telegram if the `@username` is known, the app if the profile id is known |
 | «🔄 Найти в приложении» | On a draft with nowhere to send (the person has no `@username` and was not found in the app): searches again and, if found, sends a card with the «💬 В приложении» button |
+| «✏️ Изменить» / «🤖 Переписать» | On a draft: your next message becomes the new text, or tells the model what to change («короче», «спроси про собаку»). The card comes again with the result. Your own text follows the same rules: no links, phone numbers or `@mentions` |
+| `/cancel` | Leaves the draft you started editing as it was and brings its card back; any other command does the same |
 | «🗑 Забыть» | Deletes everything about the person: profile, actions, the original notification, photo. Only a fingerprint of the id stays, so the person is never messaged again |
 
 ## How it works
@@ -107,6 +109,8 @@ Button captions are compared by whole word and in config order: `Лайк` never
 ## Message generation
 
 The text is written by `claude-haiku-5-5` (set in `Anthropic:Model`) from the profile, the photo and your profile in `Replies:Owner`. The profile goes to the model as data inside `<profile>` tags with angle brackets escaped, and the system rules say to ignore any instructions in it. Before sending, code checks the text: length, language, no links, phone numbers, `@mentions`, emoji spam or traces of instructions. If the check fails or the API is down, a template from `Replies:Templates` goes out instead (or a draft in `Confirm`, if `InvalidReplyPolicy = Confirm`).
+
+«🤖 Переписать» on a draft sends the model the same rules and profile plus the current draft in `<draft>` tags and your hint. The hint outranks the rules on length, language and tone; the other rules and checks stay. A failed rewrite keeps the old draft instead of a template, since you read the result before it goes anywhere. The prompts are built in `PromptBuilder` (`src/DateBot.Application/Replies/Services`).
 
 ## Stages and how to check them
 

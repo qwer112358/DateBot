@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using CSharpFunctionalExtensions;
 using DateBot.Application.Abstractions.Errors;
+using DateBot.Application.Notifications;
 using DateBot.Application.Ports.Dating;
 using DateBot.Application.Ports.Persistence;
 using DateBot.Application.Ports.Services;
@@ -109,6 +110,11 @@ public sealed class GenerateAndSendReply(
     /// <summary>Channels the owner can pick for this match's draft.</summary>
     public ImmutableArray<MessageChannel> ChannelsFor(Match match) =>
         MessageRouter.Available(match, match.DraftMessage.Bind(d => d.Anchor), processing.Value);
+
+    /// <summary>The card of the match's current draft, for when the old card lost its buttons on a press.</summary>
+    public Maybe<DraftReadyNotification> DraftCard(Match match) =>
+        match.DraftMessage.Map(draft => new DraftReadyNotification(
+            match.Id, match.Kind, match.Profile, draft.Text.GetValueOrThrow(), match.IsMutual, ChannelsFor(match)));
 
     private bool ShouldDraft(ComposedReply composed) =>
         processing.Value.Mode == ProcessingMode.Confirm

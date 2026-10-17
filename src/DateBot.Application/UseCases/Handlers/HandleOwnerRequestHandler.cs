@@ -13,7 +13,9 @@ using DateBot.Application.UseCases.Enums;
 using DateBot.Application.UseCases.Models;
 using DateBot.Application.UseCases.OwnerRequests;
 using DateBot.Application.UseCases.Queries;
+using DateBot.Application.UseCases.Services;
 using DateBot.Domain.Common.Errors;
+using DateBot.Domain.Matches;
 using DateBot.Domain.Matches.Enums;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -30,12 +32,14 @@ internal sealed class HandleOwnerRequestHandler(
     IOwnerNotifier notifier,
     ICommandDispatcher dispatcher,
     AppCheckSignal appCheck,
+    PendingDraftEdit edits,
     IOptions<ProcessingOptions> options,
     ILogger<HandleOwnerRequestHandler> logger)
     : ICommandHandler<HandleOwnerRequestCommand, Unit>
 {
     private const string Help =
-        "Команды: /start — включить и получать уведомления, /stop — экстренная остановка, /status — сводка, /likes — проверить лайки в приложении.";
+        "Команды: /start — включить и получать уведомления, /stop — экстренная остановка, /status — сводка, "
+        + "/likes — проверить лайки в приложении, /cancel — отменить правку черновика.";
 
     public Task<Result<Unit, Error>> HandleAsync(HandleOwnerRequestCommand command, CancellationToken ct) =>
         control.GetAsync(ct)
@@ -53,7 +57,67 @@ internal sealed class HandleOwnerRequestHandler(
             ? Result.Failure<ControlState, Error>(OwnerErrors.Unauthorized)
         : Result.Success<ControlState, Error>(state);
 
-    private Task<Result<OwnerNotification, Error>> ExecuteAsync(ControlState state, OwnerRequest request, CancellationToken ct) =>
+    /// <summary>
+    /// After «✏️ Изменить» or «🤖 Переписать» your next plain message edits that draft. Anything else cancels the edit,
+    /// and the card, whose buttons went away on the press, comes again.
+    /// </summary>
+    private async Task<Result<OwnerNotification, Error>> ExecuteAsync(ControlState state, OwnerRequest request, CancellationToken ct)
+    {
+        if (request is UnknownRequest { Text: var text } && !text.TrimStart().StartsWith('/') && edits.Take().TryGetValue(out var edit))
+        {
+            return await ReviseAsync(edit, text, ct);
+        }
+
+        var cancelled = await ReturnEditedCardAsync(ct);
+        return request switch
+        {
+            CancelRequest => Answer(cancelled ? "Оставил черновик как был." : "Сейчас нечего отменять."),
+            EditDraftRequest start => Answer(AwaitEdit(start)),
+            _ => await RunAsync(state, request, ct),
+        };
+    }
+
+    private Task<Result<OwnerNotification, Error>> ReviseAsync(DraftEdit edit, string text, CancellationToken ct) =>
+        dispatcher.SendAsync<ReviseDraftCommand, Unit>(new ReviseDraftCommand(edit.MatchId, edit.Kind, text), ct)
+            .Map(_ => (OwnerNotification)new TextNotification("✅ Черновик обновлён, карточка выше."))
+            .OnFailureCompensate(error => DraftGone(error)
+                ? Answer($"Не получилось: {error.Message}")
+                : AwaitAgain(edit, $"Не получилось: {error.Message}. Пришлите другой вариант или /cancel."));
+
+    private static bool DraftGone(Error error) => error.Type == ErrorType.NotFound || error.Code == MatchErrors.NoDraft.Code;
+
+    private Result<OwnerNotification, Error> AwaitAgain(DraftEdit edit, string text)
+    {
+        edits.Await(edit);
+        return Answer(text);
+    }
+
+    private string AwaitEdit(EditDraftRequest request)
+    {
+        edits.Await(new DraftEdit(request.MatchId, request.Kind));
+        return request.Kind == DraftEditKind.OwnText
+            ? "✏️ Пришлите новый текст сообщения одним сообщением. /cancel — оставить как было."
+            : "🤖 Напишите, что поменять: например, «короче», «спроси про собаку», «на ты». /cancel — оставить как было.";
+    }
+
+    /// <returns>Whether an edit was waiting.</returns>
+    private async Task<bool> ReturnEditedCardAsync(CancellationToken ct)
+    {
+        if (!edits.Take().TryGetValue(out var edit))
+        {
+            return false;
+        }
+
+        var offered = await dispatcher.SendAsync<OfferDraftCommand, Unit>(new OfferDraftCommand(edit.MatchId), ct);
+        if (offered.IsFailure)
+        {
+            logger.LogWarning("Draft card for {MatchId} not sent again: {Error}", edit.MatchId, offered.Error);
+        }
+
+        return true;
+    }
+
+    private Task<Result<OwnerNotification, Error>> RunAsync(ControlState state, OwnerRequest request, CancellationToken ct) =>
         request switch
         {
             StartRequest start => SaveAsync(state with { Paused = false, OwnerChatId = start.ChatId }, ct)

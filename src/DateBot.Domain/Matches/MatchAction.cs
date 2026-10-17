@@ -67,6 +67,12 @@ public sealed class MatchAction
         Set(ActionStatus.Failed, now);
     }
 
+    internal void Revise(ReplyText text, DateTimeOffset now)
+    {
+        Text = text;
+        UpdatedAt = now;
+    }
+
     /// <summary>The owner said yes to a proposed like back: from here on it is an ordinary started one.</summary>
     internal void Approve(DateTimeOffset now) => Set(ActionStatus.Pending, now);
 

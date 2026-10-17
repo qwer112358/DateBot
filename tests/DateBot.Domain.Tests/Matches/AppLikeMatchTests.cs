@@ -165,6 +165,23 @@ public sealed class AppLikeMatchTests
     }
 
     [Fact]
+    public void Revised_draft_keeps_its_anchor_and_asks_for_a_new_card()
+    {
+        var match = NewMatch(MatchKind.Mutual);
+        match.DraftReply(Reply(), Maybe.From(Anchor), Now);
+        match.PullDomainEvents();
+        var revised = ReplyText.Create("Привет! Тоже люблю горы, где была последний раз?").Value;
+
+        match.ReviseDraft(revised, Now).IsSuccess.Should().BeTrue();
+
+        var draft = match.DraftMessage.GetValueOrThrow();
+        draft.Text.Should().Be(Maybe.From(revised));
+        draft.Anchor.Should().Be(Maybe.From(Anchor));
+        match.PullDomainEvents().Should().ContainSingle().Which.Should().BeOfType<ReplyDrafted>().Which.Text.Should().Be(revised);
+        NewMatch(MatchKind.Mutual).ReviseDraft(revised, Now).Error.Should().Be(MatchErrors.NoDraft);
+    }
+
+    [Fact]
     public void Message_remembers_its_channel()
     {
         var match = AppLike();

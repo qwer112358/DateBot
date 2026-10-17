@@ -44,6 +44,23 @@ public sealed class ReplyComposer(
     }
 
     /// <summary>
+    /// Rewrites the draft by the owner's hint. They read the result before it goes anywhere, so a failure is reported
+    /// instead of falling back to a template, and the language check follows the text: the hint may ask for another language.
+    /// </summary>
+    public Task<Result<ReplyText, Error>> ReviseAsync(
+        Profile profile, Maybe<ProfilePhoto> photo, ReplyText draft, string hint, CancellationToken ct)
+    {
+        var settings = options.Value;
+        var language = ProfileLanguage(profile).GetValueOrDefault(settings.DefaultLanguage);
+        var prompt = PromptBuilder.BuildRevision(profile, settings.Owner, language, photo.HasValue, settings.MaxLength, draft, hint);
+
+        return generator.GenerateAsync(prompt, photo, ct)
+            .Map(Clean)
+            .Bind(text => Check(text, LanguageDetector.Detect(text).GetValueOrDefault(language), settings))
+            .TapError(error => logger.LogWarning("Rewrite for {Name} rejected: {Error}", profile.Name, error));
+    }
+
+    /// <summary>
     /// The bio is the person's own words, so it decides first; interests and city may be labels of the app
     /// in the owner's language and are used only when the bio says nothing.
     /// </summary>

@@ -14,7 +14,53 @@ public static class PromptBuilder
 {
     public static ReplyPrompt Build(Profile profile, OwnerProfileOptions owner, ReplyLanguage language, bool hasPhoto, int maxLength)
     {
-        var system = new StringBuilder()
+        var user = new StringBuilder(ProfileBlock(profile))
+            .AppendLine()
+            .Append("Напиши первое сообщение этому человеку по правилам выше.")
+            .ToString();
+
+        return new ReplyPrompt(Rules(owner, language, hasPhoto, maxLength), user, language);
+    }
+
+    /// <summary>
+    /// The owner did not like the draft and says what to change. Their hint is trusted and may change the length,
+    /// language or tone; the draft goes in tags as text to rework, and the profile stays data as before.
+    /// </summary>
+    public static ReplyPrompt BuildRevision(
+        Profile profile, OwnerProfileOptions owner, ReplyLanguage language, bool hasPhoto, int maxLength, ReplyText draft, string hint)
+    {
+        var system = new StringBuilder(Rules(owner, language, hasPhoto, maxLength))
+            .AppendLine()
+            .AppendLine("Владелец прочитал черновик внутри <draft> и просит его переписать. Его пожелание идёт после черновика.")
+            .AppendLine("Пожелание владельца главнее правил о длине, языке и тоне; остальные правила остаются в силе.")
+            .ToString();
+
+        var user = new StringBuilder(ProfileBlock(profile))
+            .AppendLine()
+            .AppendLine("<draft>")
+            .AppendLine(Sanitize(draft.Value))
+            .AppendLine("</draft>")
+            .AppendLine()
+            .AppendLine($"Пожелание владельца: {hint.Trim()}")
+            .AppendLine()
+            .Append("Перепиши сообщение с учётом пожелания.")
+            .ToString();
+
+        return new ReplyPrompt(system, user, language);
+    }
+
+    public static string LanguageName(ReplyLanguage language) => language switch
+    {
+        ReplyLanguage.Uzbek => "узбекский (тем же алфавитом, что и анкета)",
+        ReplyLanguage.English => "английский",
+        _ => "русский",
+    };
+
+    /// <summary>Stops the profile text from closing or opening tags in the prompt.</summary>
+    public static string Sanitize(string value) => value.Replace('<', '‹').Replace('>', '›');
+
+    private static string Rules(OwnerProfileOptions owner, ReplyLanguage language, bool hasPhoto, int maxLength) =>
+        new StringBuilder()
             .AppendLine("Ты пишешь первое сообщение в дейтинг-боте Tashdate от имени владельца аккаунта.")
             .AppendLine()
             .AppendLine("О владельце (единственный источник фактов о нём):")
@@ -37,7 +83,8 @@ public static class PromptBuilder
             .AppendLine("- Ответь только текстом сообщения, без кавычек, подписи и пояснений.")
             .ToString();
 
-        var user = new StringBuilder()
+    private static string ProfileBlock(Profile profile) =>
+        new StringBuilder()
             .AppendLine("<profile>")
             .AppendLine($"Имя: {Sanitize(profile.Name.Value)}")
             .AppendLine(profile.Age.HasValue ? $"Возраст: {profile.Age.GetValueOrThrow()}" : "Возраст: не указан")
@@ -46,22 +93,7 @@ public static class PromptBuilder
             .AppendLine(profile.Interests.IsEmpty ? "Интересы: не указаны" : $"Интересы: {Sanitize(profile.Interests.ToString())}")
             .Append(Facts(profile))
             .AppendLine("</profile>")
-            .AppendLine()
-            .Append("Напиши первое сообщение этому человеку по правилам выше.")
             .ToString();
-
-        return new ReplyPrompt(system, user, language);
-    }
-
-    public static string LanguageName(ReplyLanguage language) => language switch
-    {
-        ReplyLanguage.Uzbek => "узбекский (тем же алфавитом, что и анкета)",
-        ReplyLanguage.English => "английский",
-        _ => "русский",
-    };
-
-    /// <summary>Stops the profile text from closing or opening tags in the prompt.</summary>
-    public static string Sanitize(string value) => value.Replace('<', '‹').Replace('>', '›');
 
     private static string Facts(Profile profile) =>
         string.Concat(profile.Facts.Items.Select(fact => Sanitize(fact) + Environment.NewLine));

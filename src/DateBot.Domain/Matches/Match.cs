@@ -206,6 +206,16 @@ public sealed class Match : AggregateRoot<MatchId>
                 Raise(new ReplyDrafted(Id, Kind, Profile, text, IsMutual, anchor, now));
             });
 
+    /// <summary>The owner changed the draft (their own words or a rewrite they asked for); the card comes again with it.</summary>
+    public UnitResult<Error> ReviseDraft(ReplyText text, DateTimeOffset now) =>
+        DraftMessage
+            .ToResult(MatchErrors.NoDraft)
+            .Bind(draft => Guard.Require(!IsClosed, MatchErrors.InvalidState(Status, "правка черновика")).Tap(() =>
+            {
+                draft.Revise(text, now);
+                Raise(new ReplyDrafted(Id, Kind, Profile, text, IsMutual, draft.Anchor, now));
+            }));
+
     /// <summary>Marks the message as being sent through <paramref name="channel"/>. A draft, if any, becomes the message.</summary>
     public UnitResult<Error> StartMessage(ReplyText text, MessageChannel channel, DateTimeOffset now)
     {

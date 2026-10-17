@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using DateBot.Application.Notifications;
+using DateBot.Application.UseCases.Enums;
 using DateBot.Application.UseCases.Models;
 using DateBot.Application.UseCases.OwnerRequests;
 using DateBot.Domain.Common.Errors;
@@ -22,7 +23,11 @@ public sealed class NotifierTests
         var formatted = NotificationFormatter.Format(Draft(Profile("<b>Анна</b>"), MessageChannel.Telegram, MessageChannel.App));
 
         formatted.Buttons.Select(b => (b.Text, b.Data)).Should().Equal(
-            ("✈️ В Telegram", "send:tg:" + IdN), ("💬 В приложении", "send:app:" + IdN), ("⏭ Пропустить", "skip:" + IdN));
+            ("✈️ В Telegram", "send:tg:" + IdN),
+            ("💬 В приложении", "send:app:" + IdN),
+            ("✏️ Изменить", "edit:" + IdN),
+            ("🤖 Переписать", "rewrite:" + IdN),
+            ("⏭ Пропустить", "skip:" + IdN));
         formatted.Photo.Should().Be(Maybe.From(PhotoFileId.Create("photo:1").Value));
         formatted.Html.Should().Contain("&lt;b&gt;Анна&lt;/b&gt;", "profile text is escaped");
         formatted.Html.Should().Contain("мэтч");
@@ -81,6 +86,8 @@ public sealed class NotifierTests
             new DraftDecisionRequest(7, 42, Id.Value, Approve: true, MessageChannel.Telegram),
             new DraftDecisionRequest(7, 42, Id.Value, Approve: true, MessageChannel.App),
             new DraftDecisionRequest(7, 42, Id.Value, Approve: true, MessageChannel.BotChat),
+            new EditDraftRequest(7, 42, Id.Value, DraftEditKind.OwnText),
+            new EditDraftRequest(7, 42, Id.Value, DraftEditKind.Hint),
             new DraftDecisionRequest(7, 42, Id.Value, Approve: false));
         formatted.Buttons.Should().OnlyContain(b => b.Data.Length <= 64, "Telegram limits callback data to 64 bytes");
         OwnerBotPoller.ParseCallback(7, 42, "forget:" + IdN).GetValueOrThrow().Should().Be(new ForgetRequest(7, 42, Id.Value));
@@ -93,7 +100,7 @@ public sealed class NotifierTests
         var formatted = NotificationFormatter.Format(Draft(Profile("Шахноза")));
 
         formatted.Html.Should().Contain("Отправить некуда").And.Contain("«Привет! Как дела?»");
-        formatted.Buttons.Select(b => b.Data).Should().Equal("find:" + IdN, "skip:" + IdN);
+        formatted.Buttons.Select(b => b.Data).Should().Equal("find:" + IdN, "edit:" + IdN, "rewrite:" + IdN, "skip:" + IdN);
         OwnerBotPoller.ParseCallback(7, 42, formatted.Buttons[0].Data).GetValueOrThrow()
             .Should().Be(new LookUpContactsRequest(7, 42, Id.Value));
     }
@@ -137,6 +144,7 @@ public sealed class NotifierTests
     [InlineData("/stop", typeof(StopRequest))]
     [InlineData("/status@my_notifier_bot", typeof(StatusRequest))]
     [InlineData("/likes", typeof(CheckLikesRequest))]
+    [InlineData("/cancel", typeof(CancelRequest))]
     [InlineData("привет", typeof(UnknownRequest))]
     public void Commands_are_parsed(string text, Type expected) =>
         OwnerBotPoller.ParseCommand(7, 42, text).Should().BeOfType(expected);

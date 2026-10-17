@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddSingleton(sp => ParsingRules.From(sp.GetRequiredService<IOptions<ParsingOptions>>().Value));
 
         services.AddSingleton<AppCheckSignal>();
+        services.AddSingleton<PendingDraftEdit>();
 
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         services.AddScoped<IDomainEventHandler, NotifyOwner>();
@@ -48,6 +49,8 @@ public static class DependencyInjection
         services.AddCommandHandler<ProcessAppLikeCommand, ProcessOutcome, ProcessAppLikeHandler>();
         services.AddCommandHandler<SendReplyCommand, DraftDecision, SendReplyHandler>();
         services.AddCommandHandler<DecideLikeBackCommand, Unit, DecideLikeBackHandler>();
+        services.AddCommandHandler<ReviseDraftCommand, Unit, ReviseDraftHandler>();
+        services.AddCommandHandler<OfferDraftCommand, Unit, OfferDraftHandler>();
         services.AddCommandHandler<LookUpContactsCommand, ImmutableArray<MessageChannel>, LookUpContactsHandler>();
         services.AddCommandHandler<GetStatusQuery, StatusReport, GetStatusHandler>();
         services.AddCommandHandler<HandleOwnerRequestCommand, Unit, HandleOwnerRequestHandler>();

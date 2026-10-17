@@ -24,6 +24,8 @@ public static class NotificationFormatter
     public const string ForgetPrefix = "forget:";
     public const string LikeBackPrefix = "like:";
     public const string NoLikeBackPrefix = "nolike:";
+    public const string EditPrefix = "edit:";
+    public const string RewritePrefix = "rewrite:";
 
     public static FormattedNotification Format(OwnerNotification notification) => notification switch
     {
@@ -42,11 +44,11 @@ public static class NotificationFormatter
         DraftReadyNotification { Channels.IsDefaultOrEmpty: true } n => new FormattedNotification(
             $"✍️ <b>Черновик</b> ({DraftReason(n)})\n{Header(n.Profile)}{Contacts(n.Profile)}{Details(n.Profile)}\n\n<b>Черновик:</b>\n«{E(n.Draft.Value)}»\n\n"
                 + "Отправить некуда: у человека нет @username, а в приложении анкета не найдена. Скопируйте текст и напишите в приложении сами.",
-            [new InlineAction("🔄 Найти в приложении", LookUpPrefix + n.MatchId), new InlineAction("⏭ Пропустить", SkipPrefix + n.MatchId)],
+            [new InlineAction("🔄 Найти в приложении", LookUpPrefix + n.MatchId), .. EditButtons(n.MatchId), new InlineAction("⏭ Пропустить", SkipPrefix + n.MatchId)],
             n.Profile.Photo),
         DraftReadyNotification n => new FormattedNotification(
             $"✍️ <b>Черновик</b> ({DraftReason(n)})\n{Header(n.Profile)}{Contacts(n.Profile)}{Details(n.Profile)}\n\n<b>Черновик:</b>\n«{E(n.Draft.Value)}»\n\nКуда отправить?",
-            [.. n.Channels.Select(channel => SendButton(channel, n.MatchId)), new InlineAction("⏭ Пропустить", SkipPrefix + n.MatchId)],
+            [.. n.Channels.Select(channel => SendButton(channel, n.MatchId)), .. EditButtons(n.MatchId), new InlineAction("⏭ Пропустить", SkipPrefix + n.MatchId)],
             n.Profile.Photo),
         LikeBackProposedNotification n => About(
             n.Profile,
@@ -77,6 +79,9 @@ public static class NotificationFormatter
         new(html, [.. buttons], profile.Photo);
 
     private static InlineAction Forget(MatchId id) => new("🗑 Забыть", ForgetPrefix + id);
+
+    private static InlineAction[] EditButtons(MatchId id) =>
+        [new("✏️ Изменить", EditPrefix + id), new("🤖 Переписать", RewritePrefix + id)];
 
     private static InlineAction SendButton(MessageChannel channel, MatchId id) => channel switch
     {

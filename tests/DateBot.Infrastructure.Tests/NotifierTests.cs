@@ -63,6 +63,17 @@ public sealed class NotifierTests
     }
 
     [Fact]
+    public void Draft_no_channel_reaches_asks_to_write_by_hand_and_offers_a_new_search()
+    {
+        var formatted = NotificationFormatter.Format(Draft(Profile("Шахноза")));
+
+        formatted.Html.Should().Contain("Отправить некуда").And.Contain("«Привет! Как дела?»");
+        formatted.Buttons.Select(b => b.Data).Should().Equal("find:" + IdN, "skip:" + IdN);
+        OwnerBotPoller.ParseCallback(7, 42, formatted.Buttons[0].Data).GetValueOrThrow()
+            .Should().Be(new LookUpContactsRequest(7, 42, Id.Value));
+    }
+
+    [Fact]
     public void Send_button_of_an_older_card_still_works() =>
         OwnerBotPoller.ParseCallback(7, 42, "send:" + IdN).GetValueOrThrow()
             .Should().Be(new DraftDecisionRequest(7, 42, Id.Value, Approve: true));

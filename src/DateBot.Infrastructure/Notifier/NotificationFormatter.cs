@@ -17,6 +17,7 @@ public static class NotificationFormatter
     public const string SendToTelegramPrefix = "send:tg:";
     public const string SendToAppPrefix = "send:app:";
     public const string SendViaBotPrefix = "send:bot:";
+    public const string LookUpPrefix = "find:";
     public const string SkipPrefix = "skip:";
     public const string ForgetPrefix = "forget:";
 
@@ -31,6 +32,11 @@ public static class NotificationFormatter
         MutualHandledNotification n => Text(
             $"💞 <b>Взаимная симпатия</b>\n{Header(n.Profile)}\nОтправлено {Where(n.Channel)}: «{E(n.Message.Value)}»",
             Forget(n.MatchId)),
+        DraftReadyNotification { Channels.IsDefaultOrEmpty: true } n => new FormattedNotification(
+            $"✍️ <b>Черновик</b> ({DraftReason(n)})\n{Header(n.Profile)}{Contacts(n.Profile)}{Details(n.Profile)}\n\n<b>Черновик:</b>\n«{E(n.Draft.Value)}»\n\n"
+                + "Отправить некуда: у человека нет @username, а в приложении анкета не найдена. Скопируйте текст и напишите в приложении сами.",
+            [new InlineAction("🔄 Найти в приложении", LookUpPrefix + n.MatchId), new InlineAction("⏭ Пропустить", SkipPrefix + n.MatchId)],
+            n.Profile.Photo),
         DraftReadyNotification n => new FormattedNotification(
             $"✍️ <b>Черновик</b> ({DraftReason(n)})\n{Header(n.Profile)}{Contacts(n.Profile)}{Details(n.Profile)}\n\n<b>Черновик:</b>\n«{E(n.Draft.Value)}»\n\nКуда отправить?",
             [.. n.Channels.Select(channel => SendButton(channel, n.MatchId)), new InlineAction("⏭ Пропустить", SkipPrefix + n.MatchId)],

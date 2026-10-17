@@ -64,7 +64,8 @@ public static class ProfileMapper
     /// <summary>
     /// The app id when the profile came from the app; the bot id when the rules extract one; otherwise a fingerprint
     /// of name, age, city and the start of the first bio line, so that "liked you" and "mutual like" about the same
-    /// person map to the same match even when the two notifications have different trailing lines.
+    /// person map to the same match even when the two notifications have different trailing lines. A name alone is
+    /// too weak (a match card without @username shows nothing else, and names repeat), so the photo joins it then.
     /// </summary>
     public static string PersonKey(ParsedProfile parsed)
     {
@@ -79,12 +80,14 @@ public static class ProfileMapper
         }
 
         var bio = parsed.Bio.GetValueOrDefault(string.Empty).Split('\n')[0];
+        var nameOnly = parsed.Age.HasNoValue && parsed.City.HasNoValue && bio.Length == 0;
         var source = string.Join(
             "|",
             Normalize(parsed.Name),
             parsed.Age.HasValue ? parsed.Age.GetValueOrThrow().ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty,
             Normalize(parsed.City.GetValueOrDefault(string.Empty)),
-            Normalize(bio.Length > FingerprintBioPrefix ? bio[..FingerprintBioPrefix] : bio));
+            Normalize(bio.Length > FingerprintBioPrefix ? bio[..FingerprintBioPrefix] : bio))
+            + (nameOnly && parsed.PhotoId.HasValue ? "|" + parsed.PhotoId.GetValueOrThrow() : string.Empty);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(source));
         return "fp:" + Convert.ToHexStringLower(hash)[..20];
     }

@@ -46,19 +46,41 @@ public sealed class GenerateAndSendReply(
             return ReplyOutcome.NotNeeded;
         }
 
-        await enricher.EnrichAsync(match, ct);
-        var channels = MessageRouter.Available(match, anchor, processing.Value);
-        if (channels.IsEmpty)
+        var enriched = await enricher.EnrichAsync(match, ct);
+        if (enriched.IsFailure)
         {
-            logger.LogInformation("No channel reaches {Name} yet (no match or no contact); the message waits", match.Profile.Name);
+            logger.LogWarning("App profile of {Name} unavailable, using the notification only: {Error}", match.Profile.Name, enriched.Error);
+        }
+
+        var channels = MessageRouter.Available(match, anchor, processing.Value);
+        if (channels.IsEmpty && !match.IsMutual)
+        {
+            logger.LogInformation("No channel reaches {Name} before the match; the message waits for it", match.Profile.Name);
             return ReplyOutcome.NotNeeded;
         }
 
+        // A match no channel reaches (no @username, not found in the app) still gets its text: as a draft you send by hand.
         return await LoadPhotoAsync(match, ct)
             .Bind(photo => composer.ComposeAsync(match.Profile, photo, ct))
-            .Bind(composed => ShouldDraft(composed)
+            .Bind(composed => ShouldDraft(composed) || channels.IsEmpty
                 ? DraftAsync(match, composed.Text, anchor, ct)
                 : MessageRouter.Choose(match, anchor, processing.Value).Bind(route => SendAsync(match, composed.Text, route, ct)));
+    }
+
+    /// <summary>
+    /// "Find in the app" on a draft no channel could reach: looks the person up in the app again (it may have been
+    /// down, or the match not listed yet) and returns the channels that reach them now.
+    /// </summary>
+    public async Task<Result<ImmutableArray<MessageChannel>, Error>> LookUpAsync(Match match, CancellationToken ct)
+    {
+        if (match.DraftMessage.HasNoValue)
+        {
+            return MatchErrors.NoDraft;
+        }
+
+        return await enricher.EnrichAsync(match, ct)
+            .Bind(() => unitOfWork.CommitAsync(ct))
+            .Map(() => ChannelsFor(match));
     }
 
     /// <summary>

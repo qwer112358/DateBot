@@ -47,15 +47,33 @@ public sealed class ConfigurationTests
         processing.MiniApp.PollInterval.Should().Be(TimeSpan.FromMinutes(10));
     }
 
-    [Fact]
-    public void Shipped_settings_treat_like_hints_as_hints()
+    [Theory]
+    [InlineData("💌 Тобой интересуются\n\nЗагляни в приложение — вдруг это взаимно.", "💛 Открыть знакомства")]
+    [InlineData("🔥 Рослан, тебя лайкнули 2 раза за последние 24 часа\n\nОткрой приложение — посмотри кто и ответь лайком", "❤️ Посмотреть кто лайкнул")]
+    public void Shipped_settings_treat_like_hints_as_hints(string text, string button)
     {
         var rules = ParsingRules.From(Bind<ParsingOptions>(ParsingOptions.Section));
-        var hint = new RawBotMessage(
-            50, DateTimeOffset.UtcNow, "💌 Тобой интересуются\n\nЗагляни в приложение — вдруг это взаимно.",
-            [new BotButton("💛 Открыть знакомства", 0, 0)], Maybe<string>.None);
+        var hint = new RawBotMessage(50, DateTimeOffset.UtcNow, text, [new BotButton(button, 0, 0)], Maybe<string>.None);
 
         BotNotificationParser.Parse(hint, rules).Should().BeOfType<LikeHintNotification>();
+    }
+
+    [Fact]
+    public void Shipped_settings_parse_a_match_card_without_username()
+    {
+        var rules = ParsingRules.From(Bind<ParsingOptions>(ParsingOptions.Section));
+        var card = new RawBotMessage(
+            41,
+            DateTimeOffset.UtcNow,
+            "❤️ У вас мэтч с Шахноза!\n\nВы оба лайкнули друг друга. Самое время написать.",
+            [new BotButton("💛 Открыть знакомства", 0, 0)],
+            Maybe.From("photo:333"));
+
+        var mutual = BotNotificationParser.Parse(card, rules).Should().BeOfType<MutualNotification>().Subject;
+
+        mutual.Profile.Name.Should().Be("Шахноза");
+        mutual.Profile.Username.HasNoValue.Should().BeTrue();
+        ProfileMapper.PersonKey(mutual.Profile).Should().StartWith("fp:");
     }
 
     [Fact]

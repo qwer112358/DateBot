@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using CSharpFunctionalExtensions;
 using DateBot.Application.Abstractions;
 using DateBot.Application.Notifications;
@@ -52,6 +53,11 @@ internal sealed class HandleOwnerRequestHandler(
             DraftDecisionRequest decision => dispatcher
                 .SendAsync<SendReplyCommand, DraftDecision>(new SendReplyCommand(decision.MatchId, decision.Approve, decision.Channel), ct)
                 .Map(result => (OwnerNotification)new TextNotification(DecisionAnswer(result, decision.Channel))),
+            LookUpContactsRequest lookUp => dispatcher
+                .SendAsync<LookUpContactsCommand, ImmutableArray<MessageChannel>>(new LookUpContactsCommand(lookUp.MatchId), ct)
+                .Map(channels => (OwnerNotification)new TextNotification(channels.IsEmpty
+                    ? "В приложении этот человек пока не найден. Напишите сами или попробуйте позже."
+                    : "Нашёл. Выберите канал в новой карточке.")),
             ForgetRequest forget => dispatcher
                 .SendAsync<ForgetMatchCommand, Unit>(new ForgetMatchCommand(forget.MatchId), ct)
                 .Map(_ => (OwnerNotification)new TextNotification("Данные об этом человеке удалены.")),

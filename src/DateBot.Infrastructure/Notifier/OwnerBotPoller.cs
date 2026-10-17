@@ -76,6 +76,7 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
             .Or(() => Send(data, NotificationFormatter.SendViaBotPrefix, MessageChannel.BotChat, chatId, userId))
             .Or(() => TryId(data, NotificationFormatter.SendPrefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: true)))
             .Or(() => TryId(data, NotificationFormatter.SkipPrefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: false)))
+            .Or(() => TryId(data, NotificationFormatter.LookUpPrefix).Map(id => (OwnerRequest)new LookUpContactsRequest(chatId, userId, id)))
             .Or(() => TryId(data, NotificationFormatter.ForgetPrefix).Map(id => (OwnerRequest)new ForgetRequest(chatId, userId, id)));
 
     private async Task<Maybe<OwnerRequest>> ParseCallbackAsync(

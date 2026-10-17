@@ -43,7 +43,12 @@ internal sealed class FakeTashdateApp : ITashdateApp
             : Task.FromResult(Result.Failure<AppProfile, Error>(AppErrors.ProfileNotFound(id)));
     }
 
-    public Task<Result<ImmutableArray<AppMatch>, Error>> GetMatchesAsync(CancellationToken ct) => Ok(Matches.ToImmutableArray());
+    public Error? MatchesFailure { get; set; }
+
+    public Task<Result<ImmutableArray<AppMatch>, Error>> GetMatchesAsync(CancellationToken ct) =>
+        MatchesFailure is { } error
+            ? Task.FromResult(Result.Failure<ImmutableArray<AppMatch>, Error>(error))
+            : Ok(Matches.ToImmutableArray());
 
     public Task<Result<AppLikeResult, Error>> LikeAsync(AppProfileId id, CancellationToken ct)
     {

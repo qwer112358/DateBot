@@ -24,7 +24,7 @@ public sealed class GenerateAndSendReply(
     ITashdateApp app,
     EnrichFromApp enricher,
     ReplyComposer composer,
-    IPhotoStore photos,
+    ProfilePhotos photos,
     IUnitOfWork unitOfWork,
     ActionPacer pacer,
     IClock clock,
@@ -152,39 +152,13 @@ public sealed class GenerateAndSendReply(
         }
     }
 
-    /// <summary>Photo from local storage or downloaded from Telegram or the app; problems with it never block the message.</summary>
+    /// <summary>
+    /// The photo is always fetched and kept, because the owner's notifications show it; the LLM gets it only when
+    /// <see cref="ReplyOptions.UsePhoto"/> allows.
+    /// </summary>
     private async Task<Result<Maybe<ProfilePhoto>, Error>> LoadPhotoAsync(Match match, CancellationToken ct)
     {
-        if (!replies.Value.UsePhoto || match.Profile.Photo.HasNoValue)
-        {
-            return Maybe<ProfilePhoto>.None;
-        }
-
-        var photoId = match.Profile.Photo.GetValueOrThrow();
-        var photo = await photos.LoadAsync(photoId, ct)
-            .Bind(stored => stored.HasValue
-                ? Task.FromResult(Result.Success<Maybe<ProfilePhoto>, Error>(stored))
-                : DownloadAsync(match, photoId, ct));
-
-        return photo.IsSuccess ? photo : LogPhotoFailure(match, photo.Error);
-    }
-
-    private Task<Result<Maybe<ProfilePhoto>, Error>> DownloadAsync(Match match, PhotoFileId photoId, CancellationToken ct)
-    {
-        var download = ProfileMapper.IsAppPhoto(photoId)
-            ? processing.Value.MiniApp.Enabled ? app.DownloadPhotoAsync(photoId, ct) : NoPhoto()
-            : match.SourceMessageId.HasValue ? client.DownloadPhotoAsync(match.SourceMessageId.GetValueOrThrow(), ct) : NoPhoto();
-        return download.Tap(downloaded => downloaded.HasValue
-            ? photos.SaveAsync(photoId, downloaded.GetValueOrThrow(), ct)
-            : Task.CompletedTask);
-    }
-
-    private static Task<Result<Maybe<ProfilePhoto>, Error>> NoPhoto() =>
-        Task.FromResult(Result.Success<Maybe<ProfilePhoto>, Error>(Maybe<ProfilePhoto>.None));
-
-    private Result<Maybe<ProfilePhoto>, Error> LogPhotoFailure(Match match, Error error)
-    {
-        logger.LogWarning("Photo of {Name} unavailable, writing without it: {Error}", match.Profile.Name, error);
-        return Maybe<ProfilePhoto>.None;
+        var photo = await photos.GetAsync(match, ct);
+        return replies.Value.UsePhoto ? photo : Maybe<ProfilePhoto>.None;
     }
 }

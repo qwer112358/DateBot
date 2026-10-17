@@ -75,14 +75,14 @@ internal static class TestOptions
         HistoryBatchSize = 10,
     };
 
-    public static ReplyOptions Replies(InvalidReplyPolicy policy = InvalidReplyPolicy.Template) => new()
+    public static ReplyOptions Replies(InvalidReplyPolicy policy = InvalidReplyPolicy.Template, bool usePhoto = true) => new()
     {
         Owner = new OwnerProfileOptions { Name = "Рустам", About = "разработчик", Tone = "дружелюбный", Avoid = "работа" },
         DefaultLanguage = ReplyLanguage.Russian,
         MinLength = 20,
         MaxLength = 400,
         MaxEmoji = 1,
-        UsePhoto = true,
+        UsePhoto = usePhoto,
         InvalidReplyPolicy = policy,
         Templates = new()
         {

@@ -39,6 +39,26 @@ public sealed class NotifierTests
     }
 
     [Fact]
+    public void Every_notification_about_a_person_carries_the_photo()
+    {
+        var profile = Profile("Анна");
+        var text = ReplyText.Create("Привет! Как дела?").Value;
+        OwnerNotification[] aboutPerson =
+        [
+            new LikeHandledNotification(Id, profile, true, text, MessageChannel.Telegram),
+            new LikedBackNotification(Id, profile),
+            new MutualHandledNotification(Id, profile, text, MessageChannel.App),
+            new ActionFailedNotification(Id, profile, Domain.Common.Error.External("telegram.rpc", "boom")),
+            Draft(profile, MessageChannel.Telegram),
+            Draft(profile),
+        ];
+
+        aboutPerson.Select(n => NotificationFormatter.Format(n).Photo)
+            .Should().AllBeEquivalentTo(Maybe.From(PhotoFileId.Create("photo:1").Value));
+        NotificationFormatter.Format(new TextNotification("Отправлено.")).Photo.HasNoValue.Should().BeTrue();
+    }
+
+    [Fact]
     public void Sent_notification_says_where_the_message_went()
     {
         var formatted = NotificationFormatter.Format(new MutualHandledNotification(

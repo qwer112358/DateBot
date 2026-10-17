@@ -23,13 +23,16 @@ public static class NotificationFormatter
 
     public static FormattedNotification Format(OwnerNotification notification) => notification switch
     {
-        LikeHandledNotification n => Text(
+        LikeHandledNotification n => About(
+            n.Profile,
             $"❤️ <b>Лайк обработан</b>\n{Header(n.Profile)}\nСделано: {(n.LikedBack ? "лайк в ответ + сообщение" : "сообщение")} {Where(n.Channel)}\n\n«{E(n.Message.Value)}»",
             Forget(n.MatchId)),
-        LikedBackNotification n => Text(
+        LikedBackNotification n => About(
+            n.Profile,
             $"❤️ <b>Лайк в ответ</b>\n{Header(n.Profile)}\nСообщение уйдёт после взаимной симпатии.",
             Forget(n.MatchId)),
-        MutualHandledNotification n => Text(
+        MutualHandledNotification n => About(
+            n.Profile,
             $"💞 <b>Взаимная симпатия</b>\n{Header(n.Profile)}\nОтправлено {Where(n.Channel)}: «{E(n.Message.Value)}»",
             Forget(n.MatchId)),
         DraftReadyNotification { Channels.IsDefaultOrEmpty: true } n => new FormattedNotification(
@@ -43,7 +46,8 @@ public static class NotificationFormatter
             n.Profile.Photo),
         ParseFailedNotification n => Text(
             $"⚠️ <b>Не удалось разобрать сообщение бота</b> #{n.BotMessageId}\nПричина: {E(n.Reason)}\n\n<pre>{E(Truncate(n.RawText, 2500))}</pre>"),
-        ActionFailedNotification n => Text(
+        ActionFailedNotification n => About(
+            n.Profile,
             $"❌ <b>Ошибка</b>\n{Header(n.Profile)}\nПричина: {E(n.Reason.Message)}",
             Forget(n.MatchId)),
         PausedNotification n => Text(
@@ -57,6 +61,10 @@ public static class NotificationFormatter
 
     private static FormattedNotification Text(string html, params InlineAction[] buttons) =>
         new(html, [.. buttons], Maybe<PhotoFileId>.None);
+
+    /// <summary>Every notification about a person comes with their photo.</summary>
+    private static FormattedNotification About(Profile profile, string html, params InlineAction[] buttons) =>
+        new(html, [.. buttons], profile.Photo);
 
     private static InlineAction Forget(MatchId id) => new("🗑 Забыть", ForgetPrefix + id);
 

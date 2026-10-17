@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<ReplyComposer>();
         services.AddScoped<LikeBack>();
         services.AddScoped<EnrichFromApp>();
+        services.AddScoped<ProfilePhotos>();
         services.AddScoped<GenerateAndSendReply>();
 
         services.AddCommandHandler<ProcessBotMessageCommand, ProcessOutcome, ProcessBotMessageHandler>();

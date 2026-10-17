@@ -22,6 +22,7 @@ internal sealed class ProcessAppLikeHandler(
     IClock clock,
     LikeBack likeBack,
     GenerateAndSendReply reply,
+    ProfilePhotos photos,
     IOptions<ProcessingOptions> options,
     ILogger<ProcessAppLikeHandler> logger)
     : ICommandHandler<ProcessAppLikeCommand, ProcessOutcome>
@@ -81,6 +82,7 @@ internal sealed class ProcessAppLikeHandler(
                 .Map(() => match))
             .Bind(match => matches.AddAsync(match, ct)
                 .Bind(() => unitOfWork.CommitAsync(ct))
+                .Tap(() => match.IsClosed ? Task.CompletedTask : photos.GetAsync(match, ct))
                 .Map(() => match));
 
     private Task<Result<ProcessOutcome, Error>> ExecuteAsync(Match match, CancellationToken ct) =>

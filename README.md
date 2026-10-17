@@ -47,7 +47,8 @@ Without secrets the service refuses to start and lists what is missing (FluentVa
 | «✈️ В Telegram» / «💬 В приложении» / «⏭ Пропустить» | Decision on a draft in `Confirm` mode: where to send the message, or not to send it. Only channels that reach the person are shown: Telegram if the `@username` is known, the app if the profile id is known |
 | «🔄 Найти в приложении» | On a draft with nowhere to send (the person has no `@username` and was not found in the app): searches again and, if found, sends a card with the «💬 В приложении» button |
 | «✏️ Изменить» / «🤖 Переписать» | On a draft: your next message becomes the new text, or tells the model what to change («короче», «спроси про собаку»). The card comes again with the result. Your own text follows the same rules: no links, phone numbers or `@mentions` |
-| `/cancel` | Leaves the draft you started editing as it was and brings its card back; any other command does the same |
+| `/cancel` | Leaves the draft you started editing as it was; any other command does the same. The card keeps its buttons throughout |
+| `/matches` | Every mutual match in the app you have not written to through DateBot gets a draft card with the album: a waiting draft comes again, someone you matched yourself in the feed gets a new one. Drafts only, whatever `Mode`; at most `MiniApp:MaxLikesPerPass` new drafts per run. A message you typed yourself is not visible to DateBot, so skip those cards |
 | `/drafts` | Sends every draft that waits for your decision again: when cards got buried in the chat or came from an older version without the newer buttons |
 | «🗑 Забыть» | Deletes everything about the person: profile, actions, the original notification, photo. Only a fingerprint of the id stays, so the person is never messaged again |
 

@@ -5,7 +5,7 @@ namespace DateBot.Application.UseCases.Services;
 
 /// <summary>
 /// The draft your next plain message to the notifier bot edits, after «✏️ Изменить» or «🤖 Переписать». Kept in
-/// memory only: after a restart the card's buttons are gone anyway, and /cancel or any command brings the card back.
+/// memory only: the card keeps its buttons, so after a restart you press the button again.
 /// </summary>
 public sealed class PendingDraftEdit
 {

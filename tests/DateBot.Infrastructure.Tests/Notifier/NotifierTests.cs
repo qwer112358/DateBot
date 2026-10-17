@@ -146,6 +146,15 @@ public sealed class NotifierTests
             .Should().Contain("Отвечать пока не на что");
     }
 
+    [Theory]
+    [InlineData("edit:", true)]
+    [InlineData("rewrite:", true)]
+    [InlineData("send:tg:", false)]
+    [InlineData("skip:", false)]
+    [InlineData("like:", false)]
+    public void Only_edit_presses_leave_the_buttons_on_the_card(string prefix, bool keeps) =>
+        OwnerBotPoller.KeepsButtons(prefix + IdN).Should().Be(keeps);
+
     [Fact]
     public void Send_button_of_an_older_card_still_works() =>
         OwnerBotPoller.ParseCallback(7, 42, "send:" + IdN).GetValueOrThrow()
@@ -158,6 +167,7 @@ public sealed class NotifierTests
     [InlineData("/likes", typeof(CheckLikesRequest))]
     [InlineData("/cancel", typeof(CancelRequest))]
     [InlineData("/drafts", typeof(DraftsRequest))]
+    [InlineData("/matches", typeof(MatchesRequest))]
     [InlineData("привет", typeof(UnknownRequest))]
     public void Commands_are_parsed(string text, Type expected) =>
         OwnerBotPoller.ParseCommand(7, 42, text).Should().BeOfType(expected);

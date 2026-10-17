@@ -39,7 +39,8 @@ internal sealed class HandleOwnerRequestHandler(
 {
     private const string Help =
         "Команды: /start — включить и получать уведомления, /stop — экстренная остановка, /status — сводка, "
-        + "/likes — проверить лайки в приложении, /drafts — прислать черновики заново, /cancel — отменить правку черновика.";
+        + "/likes — проверить лайки в приложении, /matches — взаимные симпатии без сообщения, /drafts — прислать черновики заново, "
+        + "/cancel — отменить правку черновика.";
 
     public Task<Result<Unit, Error>> HandleAsync(HandleOwnerRequestCommand command, CancellationToken ct) =>
         control.GetAsync(ct)
@@ -58,8 +59,8 @@ internal sealed class HandleOwnerRequestHandler(
         : Result.Success<ControlState, Error>(state);
 
     /// <summary>
-    /// After «✏️ Изменить» or «🤖 Переписать» your next plain message edits that draft. Anything else cancels the edit,
-    /// and the card, whose buttons went away on the press, comes again.
+    /// After «✏️ Изменить» or «🤖 Переписать» your next plain message edits that draft. Anything else cancels the edit;
+    /// the card keeps its buttons, so nothing has to come again.
     /// </summary>
     private async Task<Result<OwnerNotification, Error>> ExecuteAsync(ControlState state, OwnerRequest request, CancellationToken ct)
     {
@@ -68,7 +69,7 @@ internal sealed class HandleOwnerRequestHandler(
             return await ReviseAsync(edit, text, ct);
         }
 
-        var cancelled = await ReturnEditedCardAsync(ct);
+        var cancelled = edits.Take().HasValue;
         return request switch
         {
             CancelRequest => Answer(cancelled ? "Оставил черновик как был." : "Сейчас нечего отменять."),
@@ -100,23 +101,6 @@ internal sealed class HandleOwnerRequestHandler(
             : "🤖 Напишите, что поменять: например, «короче», «спроси про собаку», «на ты». /cancel — оставить как было.";
     }
 
-    /// <returns>Whether an edit was waiting.</returns>
-    private async Task<bool> ReturnEditedCardAsync(CancellationToken ct)
-    {
-        if (!edits.Take().TryGetValue(out var edit))
-        {
-            return false;
-        }
-
-        var offered = await dispatcher.SendAsync<OfferDraftCommand, Unit>(new OfferDraftCommand(edit.MatchId), ct);
-        if (offered.IsFailure)
-        {
-            logger.LogWarning("Draft card for {MatchId} not sent again: {Error}", edit.MatchId, offered.Error);
-        }
-
-        return true;
-    }
-
     private Task<Result<OwnerNotification, Error>> RunAsync(ControlState state, OwnerRequest request, CancellationToken ct) =>
         request switch
         {
@@ -139,6 +123,7 @@ internal sealed class HandleOwnerRequestHandler(
                 .SendAsync<ForgetMatchCommand, Unit>(new ForgetMatchCommand(forget.MatchId), ct)
                 .Map(_ => (OwnerNotification)new TextNotification("Данные об этом человеке удалены.")),
             CheckLikesRequest => Task.FromResult(Answer(RequestLikesCheck(state))),
+            MatchesRequest => RequestMatchesAsync(state, ct),
             DraftsRequest => dispatcher
                 .SendAsync<OfferDraftsCommand, int>(new OfferDraftsCommand(), ct)
                 .Map(count => (OwnerNotification)new TextNotification(count == 0
@@ -165,6 +150,48 @@ internal sealed class HandleOwnerRequestHandler(
 
         appCheck.Request(AppCheckRequest.Report);
         return "🔎 Проверяю лайки в приложении: новые придут карточками, потом сводка.";
+    }
+
+    private Task<Result<OwnerNotification, Error>> RequestMatchesAsync(ControlState state, CancellationToken ct) =>
+        !options.Value.MiniApp.Enabled
+            ? Task.FromResult(Answer("Mini App выключена (Processing:MiniApp:Enabled = false): мэтчи берутся из приложения."))
+            : dispatcher.SendAsync<OfferMatchesCommand, MatchesReport>(new OfferMatchesCommand(), ct)
+                .Map(report => (OwnerNotification)new TextNotification(MatchesAnswer(report)));
+
+    private static string MatchesAnswer(MatchesReport r)
+    {
+        var lines = new List<string> { $"💞 Взаимных симпатий в приложении: {r.Total}." };
+        if (r.Drafted + r.Waiting == 0)
+        {
+            lines.Add("Всем, кому DateBot мог написать, он уже написал или вы пропустили.");
+        }
+
+        if (r.Drafted > 0)
+        {
+            lines.Add($"✍️ новых черновиков: {r.Drafted}");
+        }
+
+        if (r.Waiting > 0)
+        {
+            lines.Add($"⏳ черновики ждали вашего решения: {r.Waiting}");
+        }
+
+        if (r.Done > 0)
+        {
+            lines.Add($"✔️ уже написано или пропущено: {r.Done}");
+        }
+
+        if (r.Failed > 0)
+        {
+            lines.Add($"❌ не получилось: {r.Failed}");
+        }
+
+        if (r.Deferred > 0)
+        {
+            lines.Add($"⏭ ещё {r.Deferred} — отправьте /matches снова");
+        }
+
+        return string.Join('\n', lines);
     }
 
     private static string LikeBackAnswer(ControlState state, bool approve) => (approve, state.Paused) switch

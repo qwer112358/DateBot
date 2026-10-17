@@ -70,6 +70,7 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
             "/likes" => new CheckLikesRequest(chatId, userId),
             "/cancel" => new CancelRequest(chatId, userId),
             "/drafts" => new DraftsRequest(chatId, userId),
+            "/matches" => new MatchesRequest(chatId, userId),
             _ => new UnknownRequest(chatId, userId, text),
         };
     }
@@ -93,7 +94,10 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
         try
         {
             await client.AnswerCallbackQuery(query.Id, "Принято", cancellationToken: ct);
-            await client.EditMessageReplyMarkup(message.Chat.Id, message.MessageId, replyMarkup: null, cancellationToken: ct);
+            if (!KeepsButtons(data))
+            {
+                await client.EditMessageReplyMarkup(message.Chat.Id, message.MessageId, replyMarkup: null, cancellationToken: ct);
+            }
         }
         catch (RequestException ex)
         {
@@ -102,6 +106,14 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
 
         return ParseCallback(message.Chat.Id, query.From.Id, data);
     }
+
+    /// <summary>
+    /// A decision takes the buttons off its card, so it cannot be pressed twice. An edit does not: the waiting edit lives
+    /// in memory, and a restart or a cancel must not leave the card without buttons.
+    /// </summary>
+    public static bool KeepsButtons(string data) =>
+        data.StartsWith(NotificationFormatter.EditPrefix, StringComparison.Ordinal)
+        || data.StartsWith(NotificationFormatter.RewritePrefix, StringComparison.Ordinal);
 
     private static Maybe<OwnerRequest> Send(string data, string prefix, MessageChannel channel, long chatId, long userId) =>
         TryId(data, prefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: true, channel));

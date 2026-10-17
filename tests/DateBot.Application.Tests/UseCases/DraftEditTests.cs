@@ -85,7 +85,7 @@ public sealed class DraftEditTests
     }
 
     [Fact]
-    public async Task Cancel_brings_the_card_back_and_the_next_text_is_not_an_edit()
+    public async Task Cancel_leaves_the_draft_and_the_next_text_is_not_an_edit()
     {
         await using var host = await WithDraftAsync();
         var match = host.Store.SingleMatch;
@@ -94,7 +94,6 @@ public sealed class DraftEditTests
         await host.OwnerAsync(new CancelRequest(7, 42));
         await host.OwnerAsync(new UnknownRequest(7, 42, OwnText));
 
-        host.Notifier.Sent.OfType<DraftReadyNotification>().Should().HaveCount(2, "the pressed card lost its buttons");
         host.Notifier.Sent.OfType<TextNotification>().Select(n => n.Text).Should().Contain("Оставил черновик как был.");
         host.Notifier.Sent.OfType<TextNotification>().Last().Text.Should().StartWith("Команды:");
         match.DraftMessage.GetValueOrThrow().Text.GetValueOrThrow().Value.Should().NotBe(OwnText);
@@ -104,12 +103,14 @@ public sealed class DraftEditTests
     public async Task Another_command_cancels_the_edit_and_still_runs()
     {
         await using var host = await WithDraftAsync();
+        var draft = host.Store.SingleMatch.DraftMessage.GetValueOrThrow().Text;
         await host.OwnerAsync(new EditDraftRequest(7, 42, host.Store.SingleMatch.Id.Value, DraftEditKind.Hint));
 
         await host.OwnerAsync(new StatusRequest(7, 42));
+        await host.OwnerAsync(new UnknownRequest(7, 42, OwnText));
 
-        host.Notifier.Sent.OfType<DraftReadyNotification>().Should().HaveCount(2);
-        host.Notifier.Sent.Last().Should().BeOfType<StatusNotification>();
+        host.Notifier.Sent.OfType<StatusNotification>().Should().ContainSingle();
+        host.Store.SingleMatch.DraftMessage.GetValueOrThrow().Text.Should().Be(draft, "the edit ended with /status");
     }
 
     [Fact]

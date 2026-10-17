@@ -45,7 +45,8 @@ public sealed class GenerateAndSendReply(
     ILogger<GenerateAndSendReply> logger)
 {
     /// <param name="anchor">The bot notification that triggered the message (bot-chat channel); none for an app like.</param>
-    public async Task<Result<ReplyOutcome, Error>> ExecuteAsync(Match match, Maybe<BotMessageId> anchor, CancellationToken ct)
+    /// <param name="draftOnly">Keep the text as a draft whatever the mode: you asked to see it, not to send it.</param>
+    public async Task<Result<ReplyOutcome, Error>> ExecuteAsync(Match match, Maybe<BotMessageId> anchor, CancellationToken ct, bool draftOnly = false)
     {
         // A send left Pending by a crash may or may not have reached the person: never risk a second message.
         if (match.PendingAction.HasValue && match.PendingAction.GetValueOrThrow().Type == ActionType.SendMessage)
@@ -74,7 +75,7 @@ public sealed class GenerateAndSendReply(
         // A match no channel reaches (no @username, not found in the app) still gets its text: as a draft you send by hand.
         return await LoadPhotoAsync(match, ct)
             .Bind(photos => composer.ComposeAsync(match.Profile, photos, ct))
-            .Bind(composed => ShouldDraft(composed) || channels.IsEmpty
+            .Bind(composed => draftOnly || ShouldDraft(composed) || channels.IsEmpty
                 ? DraftAsync(match, composed.Text, anchor, ct)
                 : MessageRouter.Choose(match, anchor, processing.Value).Bind(route => SendAsync(match, composed.Text, route, ct)));
     }

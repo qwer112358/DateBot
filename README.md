@@ -17,7 +17,6 @@ cd src/DateBot.Worker
 dotnet user-secrets set "Telegram:ApiId" "1234567"
 dotnet user-secrets set "Telegram:ApiHash" "0123456789abcdef0123456789abcdef"
 dotnet user-secrets set "Telegram:PhoneNumber" "+998901234567"
-dotnet user-secrets set "Telegram:TashdateBotUsername" "имя_бота_tashdate"
 dotnet user-secrets set "Notifier:BotToken" "123456:ABC..."
 dotnet user-secrets set "Anthropic:ApiKey" "sk-ant-..."
 dotnet user-secrets set "Replies:Owner:Name" "Ваше имя"
@@ -63,7 +62,7 @@ dotnet run --project src/DateBot.Worker
 | `LikeMarkers` | Фрагменты текста «вас лайкнули» |
 | `MutualMarkers` | Фрагменты «взаимная симпатия»; проверяются первыми |
 | `IgnoreMarkers` | Служебные сообщения бота, на которые не нужно реагировать |
-| `ProfilePattern` | Regex анкеты с группами `name` (обязательна), `age`, `city`, `bio` |
+| `ProfilePatterns` | Список regex анкеты с группами `name` (обязательна), `age`, `city`, `bio`; срабатывает первый подошедший |
 | `InterestsPattern`, `UsernamePattern`, `PersonIdPattern` | Интересы, `@username` из взаимной симпатии, стабильный id анкеты, если бот его показывает |
 | `UnknownMessages` | `ParseFailed` (по умолчанию, с уведомлением вам) или `Ignore` |
 
@@ -136,8 +135,23 @@ dotnet test DateBot.slnx
 - **Свой диспетчер вместо MediatR.** Каждая команда выполняется в своём DI-scope, валидация входа — декоратором.
 - **FluentAssertions 7.x.** Последняя версия под Apache-2.0; 8.x требует коммерческую лицензию.
 
+## Бот Tashdate: что известно
+
+Бот — `@Znakomstva_Tashkentt_bot` (задан в `Telegram:TashdateBotUsername`). При взаимной симпатии он присылает в чат фото с подписью:
+
+```
+❤️ У вас мэтч с {имя}!
+
+Вы оба лайкнули друг друга. Самое время написать.
+@{username}
+```
+
+и inline-кнопку «💛 Открыть знакомства», которая открывает Mini App. Настройки по умолчанию разбирают именно этот формат: маркер «у вас мэтч», шаблон `мэтч с (?<name>…)!`, а человек опознаётся по `@username` (`PersonIdPattern`), потому что возраста, города и описания в карточке нет. Сообщение пишется в личку по `@username` и строится по имени и фото.
+
+Входящие лайки этот бот в чат не присылает: они видны только во вкладке «Лайки» внутри Mini App, с кнопками ✕ и ❤. Поэтому сценарий A (лайк в ответ) через кнопки в чате для этого бота недоступен.
+
 ## Что осталось выяснить
 
-- Реальный формат уведомлений «вас лайкнули» и «взаимная симпатия» и список кнопок: от этого зависят `Parsing` и `LikeBackButtons`.
-- Можно ли писать сразу после лайка в ответ (`LikedMeMessage`) и как именно (`MessageButtons`, `MutualRoute`).
+- Как отвечать на входящие лайки: только через Mini App (её внутренний API) или вручную.
+- Присылает ли бот в чат что-то ещё (служебные сообщения, рассылки); их стоит добавить в `IgnoreMarkers`, когда они придут в `ParseFailed`.
 - Правила Tashdate об автоматизации и выбор аккаунта: автоматизация пользовательского аккаунта нарушает условия Telegram, лучше не использовать основной.

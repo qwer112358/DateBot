@@ -114,7 +114,7 @@ public sealed class ParserTests
         {
             LikeMarkers = ["понравил"],
             MutualMarkers = ["взаимн"],
-            ProfilePattern = TestOptions.Parsing().ProfilePattern,
+            ProfilePatterns = TestOptions.Parsing().ProfilePatterns,
             PersonIdPattern = @"ID:\s*(?<id>\d+)",
         });
         var like = (LikeNotification)BotNotificationParser.Parse(Text(23, $"Ты понравился!\n{AnnaProfile}\nID: 98765"), rules);

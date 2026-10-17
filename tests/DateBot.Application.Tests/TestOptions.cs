@@ -4,18 +4,35 @@ using DateBot.Application.Replies;
 
 namespace DateBot.Application.Tests;
 
-/// <summary>Same rules as the shipped appsettings.json.</summary>
 internal static class TestOptions
 {
+    private const string FullProfilePattern =
+        @"^(?<name>[^,\n]{1,64}),\s*(?<age>\d{2})\s*(?:,\s*(?<city>[^\n,–—-]{1,64}?))?\s*(?:[–—-]\s*(?<bio>[\s\S]+))?$";
+
+    private const string UsernamePattern = @"@(?<username>[A-Za-z][A-Za-z0-9_]{4,31})";
+
+    /// <summary>Generic rules for the scenario tests: profile cards with name, age, city and bio.</summary>
     public static ParsingOptions Parsing() => new()
     {
         LikeMarkers = ["понравил", "лайкнул", "yoqtir", "liked you"],
         MutualMarkers = ["взаимн", "o'zaro", "o‘zaro", "mutual", "it's a match"],
         IgnoreMarkers = ["Лайк отправлен"],
-        ProfilePattern = @"^(?<name>[^,\n]{1,64}),\s*(?<age>\d{2})\s*(?:,\s*(?<city>[^\n,–—-]{1,64}?))?\s*(?:[–—-]\s*(?<bio>[\s\S]+))?$",
+        ProfilePatterns = [FullProfilePattern],
         InterestsPattern = @"^(?:Интересы|Увлечения|Qiziqishlar|Interests)\s*:\s*(?<interests>.+)$",
-        UsernamePattern = @"@(?<username>[A-Za-z][A-Za-z0-9_]{4,31})",
+        UsernamePattern = UsernamePattern,
         PersonIdPattern = string.Empty,
+        UnknownMessages = UnknownMessagePolicy.ParseFailed,
+    };
+
+    /// <summary>The shipped rules for @Znakomstva_Tashkentt_bot: a match card carries only the name and @username.</summary>
+    public static ParsingOptions TashdateParsing() => new()
+    {
+        LikeMarkers = ["понравил", "лайкнул", "yoqtir", "liked you"],
+        MutualMarkers = ["у вас мэтч", "мэтч с", "взаимн", "o'zaro", "o‘zaro", "mutual", "it's a match"],
+        ProfilePatterns = [@"мэтч с (?<name>[^!\n]{1,64})!", FullProfilePattern],
+        InterestsPattern = @"^(?:Интересы|Увлечения|Qiziqishlar|Interests)\s*:\s*(?<interests>.+)$",
+        UsernamePattern = UsernamePattern,
+        PersonIdPattern = @"@(?<id>[A-Za-z][A-Za-z0-9_]{4,31})",
         UnknownMessages = UnknownMessagePolicy.ParseFailed,
     };
 

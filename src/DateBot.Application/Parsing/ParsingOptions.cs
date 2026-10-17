@@ -14,8 +14,11 @@ public sealed class ParsingOptions
     /// <summary>Service messages of the bot that need no reaction.</summary>
     public string[] IgnoreMarkers { get; init; } = [];
 
-    /// <summary>Regex with groups <c>name</c> (required), <c>age</c>, <c>city</c>, <c>bio</c>.</summary>
-    public string ProfilePattern { get; init; } = string.Empty;
+    /// <summary>
+    /// Regexes with groups <c>name</c> (required), <c>age</c>, <c>city</c>, <c>bio</c>; tried in order, the first match
+    /// wins. Several are needed because notifications differ: a match card shows only the name.
+    /// </summary>
+    public string[] ProfilePatterns { get; init; } = [];
 
     /// <summary>Regex with group <c>interests</c>; items are split by comma, semicolon, # or bullet.</summary>
     public string InterestsPattern { get; init; } = string.Empty;

@@ -9,10 +9,10 @@ public sealed class ParsingOptionsValidator : AbstractValidator<ParsingOptions>
     {
         RuleFor(o => o.LikeMarkers).NotEmpty();
         RuleFor(o => o.MutualMarkers).NotEmpty();
-        RuleFor(o => o.ProfilePattern)
-            .NotEmpty()
+        RuleFor(o => o.ProfilePatterns).NotEmpty().WithMessage("Нужен хотя бы один шаблон анкеты (Parsing:ProfilePatterns)");
+        RuleForEach(o => o.ProfilePatterns)
             .Must(p => IsRegex(p) && p.Contains("?<name>", StringComparison.Ordinal))
-            .WithMessage("ProfilePattern должен быть корректным regex с группой name");
+            .WithMessage("Каждый ProfilePatterns должен быть корректным regex с группой name");
         RuleFor(o => o.InterestsPattern).Must(p => p.Length == 0 || IsRegex(p)).WithMessage("InterestsPattern: некорректный regex");
         RuleFor(o => o.UsernamePattern).Must(p => p.Length == 0 || IsRegex(p)).WithMessage("UsernamePattern: некорректный regex");
         RuleFor(o => o.PersonIdPattern).Must(p => p.Length == 0 || IsRegex(p)).WithMessage("PersonIdPattern: некорректный regex");

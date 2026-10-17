@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using DateBot.Application.Abstractions;
+using DateBot.Application.Parsing;
 using DateBot.Application.Ports;
 using DateBot.Application.Processing;
 using DateBot.Application.Replies;
@@ -18,14 +19,14 @@ internal sealed class TestHost : IAsyncDisposable
 {
     private readonly ServiceProvider _services;
 
-    public TestHost(ProcessingOptions? processing = null, ReplyOptions? replies = null)
+    public TestHost(ProcessingOptions? processing = null, ReplyOptions? replies = null, ParsingOptions? parsing = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         services.AddSingleton(Options.Create(processing ?? TestOptions.Processing()));
         services.AddSingleton(Options.Create(replies ?? TestOptions.Replies()));
-        services.AddSingleton(Options.Create(TestOptions.Parsing()));
+        services.AddSingleton(Options.Create(parsing ?? TestOptions.Parsing()));
 
         services.AddApplication();
 

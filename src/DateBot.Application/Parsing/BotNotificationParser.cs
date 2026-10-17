@@ -49,10 +49,13 @@ public static class BotNotificationParser
 
     private static Result<ParsedProfile, string> ParseProfile(RawBotMessage message, ParsingRules rules)
     {
-        var match = SafeMatch(rules.Profile, message.Text);
+        var match = rules.Profiles
+            .Select(pattern => SafeMatch(pattern, message.Text))
+            .TryFirst(found => found.HasValue)
+            .GetValueOrDefault(Maybe<RegexMatch>.None);
         if (match.HasNoValue)
         {
-            return Result.Failure<ParsedProfile, string>("Не удалось найти в сообщении анкету (имя, возраст, город)");
+            return Result.Failure<ParsedProfile, string>("Не удалось найти в сообщении анкету: ни один шаблон из Parsing:ProfilePatterns не подошёл");
         }
 
         var groups = match.GetValueOrThrow().Groups;

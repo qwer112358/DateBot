@@ -10,7 +10,7 @@ public sealed record ParsingRules(
     ImmutableArray<string> LikeMarkers,
     ImmutableArray<string> MutualMarkers,
     ImmutableArray<string> IgnoreMarkers,
-    Regex Profile,
+    ImmutableArray<Regex> Profiles,
     Maybe<Regex> Interests,
     Maybe<Regex> Username,
     Maybe<Regex> PersonId,
@@ -22,7 +22,7 @@ public sealed record ParsingRules(
         Clean(options.LikeMarkers),
         Clean(options.MutualMarkers),
         Clean(options.IgnoreMarkers),
-        new Regex(options.ProfilePattern, RegexOptions.Multiline | RegexOptions.IgnoreCase, RegexTimeout),
+        [.. options.ProfilePatterns.Where(p => !string.IsNullOrWhiteSpace(p)).Select(Compile)],
         Optional(options.InterestsPattern),
         Optional(options.UsernamePattern),
         Optional(options.PersonIdPattern),
@@ -32,7 +32,8 @@ public sealed record ParsingRules(
         [.. markers.Select(m => m.Trim()).Where(m => m.Length > 0)];
 
     private static Maybe<Regex> Optional(string pattern) =>
-        string.IsNullOrWhiteSpace(pattern)
-            ? Maybe<Regex>.None
-            : Maybe.From(new Regex(pattern, RegexOptions.Multiline | RegexOptions.IgnoreCase, RegexTimeout));
+        string.IsNullOrWhiteSpace(pattern) ? Maybe<Regex>.None : Maybe.From(Compile(pattern));
+
+    private static Regex Compile(string pattern) =>
+        new(pattern, RegexOptions.Multiline | RegexOptions.IgnoreCase, RegexTimeout);
 }

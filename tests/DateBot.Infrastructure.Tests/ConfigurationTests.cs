@@ -1,6 +1,8 @@
+using CSharpFunctionalExtensions;
 using DateBot.Application.Parsing;
 using DateBot.Application.Processing;
 using DateBot.Application.Replies;
+using DateBot.Application.Telegram;
 using Microsoft.Extensions.Configuration;
 
 namespace DateBot.Infrastructure.Tests;
@@ -15,7 +17,6 @@ public sealed class ConfigurationTests
             ["Telegram:ApiId"] = "12345",
             ["Telegram:ApiHash"] = "0123456789abcdef0123456789abcdef",
             ["Telegram:PhoneNumber"] = "+998901234567",
-            ["Telegram:TashdateBotUsername"] = "tashdate_bot",
             ["Replies:Owner:Name"] = "Рустам",
         })
         .Build();
@@ -51,7 +52,25 @@ public sealed class ConfigurationTests
 
         var errors = new TelegramOptionsValidator().Validate(empty.GetSection(TelegramOptions.Section).Get<TelegramOptions>()!).Errors;
 
-        errors.Select(e => e.PropertyName).Should().Contain(["ApiId", "ApiHash", "PhoneNumber", "TashdateBotUsername"]);
+        errors.Select(e => e.PropertyName).Should().BeEquivalentTo(["ApiId", "ApiHash", "PhoneNumber"]);
+    }
+
+    [Fact]
+    public void Shipped_settings_parse_the_real_match_card()
+    {
+        var rules = ParsingRules.From(Bind<ParsingOptions>(ParsingOptions.Section));
+        var card = new RawBotMessage(
+            40,
+            DateTimeOffset.UtcNow,
+            "❤️ У вас мэтч с Аня!\n\nВы оба лайкнули друг друга. Самое время написать.\n@anya_sample",
+            [new BotButton("💛 Открыть знакомства", 0, 0)],
+            Maybe.From("photo:222"));
+
+        var mutual = BotNotificationParser.Parse(card, rules).Should().BeOfType<MutualNotification>().Subject;
+
+        mutual.Profile.Name.Should().Be("Аня");
+        ProfileMapper.PersonKey(mutual.Profile).Should().Be("id:anya_sample");
+        Bind<TelegramOptions>(TelegramOptions.Section).TashdateBotUsername.Should().Be("Znakomstva_Tashkentt_bot");
     }
 
     [Fact]

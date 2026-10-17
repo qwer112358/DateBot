@@ -4,9 +4,20 @@ using DateBot.Application.Telegram;
 
 namespace DateBot.Application.Tests;
 
-/// <summary>Anonymised examples of bot notifications (format to be confirmed with real Tashdate messages).</summary>
+/// <summary>
+/// Anonymised examples of bot notifications. <see cref="TashdateMatch"/> copies the real match card of
+/// @Znakomstva_Tashkentt_bot (photo + caption + "Открыть знакомства" web-app button); the others are synthetic.
+/// </summary>
 internal static class Samples
 {
+    /// <summary>Real format, fictional person.</summary>
+    public static RawBotMessage TashdateMatch(long id, string name = "Аня", string username = "anya_sample") => new(
+        id,
+        SentAt,
+        $"❤️ У вас мэтч с {name}!\n\nВы оба лайкнули друг друга. Самое время написать.\n@{username}",
+        [new BotButton("💛 Открыть знакомства", 0, 0)],
+        Maybe.From("photo:222"));
+
     public static readonly DateTimeOffset SentAt = new(2026, 10, 17, 11, 0, 0, TimeSpan.Zero);
 
     public const string AnnaProfile = "Анна, 24, Ташкент – Люблю горы, кофе и долгие прогулки";

@@ -70,8 +70,8 @@ internal sealed class TelegramOwnerNotifier(
             : new InlineKeyboardMarkup(formatted.Buttons
                 .Chunk(ButtonsPerRow)
                 .Select(row => row.Select(b => InlineKeyboardButton.WithCallbackData(b.Text, b.Data))));
-        await SendAlbumAsync(client, chatId, formatted, silent, ct);
-        var photo = formatted.Photo.HasValue ? await LoadPhotoAsync(formatted.Photo.GetValueOrThrow(), ct) : Maybe<byte[]>.None;
+        var inAlbum = await SendAlbumAsync(client, chatId, formatted, silent, ct);
+        var photo = formatted.Photo.HasValue && !inAlbum ? await LoadPhotoAsync(formatted.Photo.GetValueOrThrow(), ct) : Maybe<byte[]>.None;
 
         if (photo.HasValue && formatted.Html.Length <= CaptionLimit)
         {
@@ -92,18 +92,20 @@ internal sealed class TelegramOwnerNotifier(
     }
 
     /// <summary>
-    /// The profile's other photos go first, so the card with its buttons stays the last message. Telegram albums take
-    /// 2 to 10 items, so a single extra photo goes on its own; photos missing from the store are skipped.
+    /// All the profile's photos, main first, as one album; the card then follows as text right under it, because
+    /// Telegram albums cannot carry buttons. Photos missing from the store are skipped; with fewer than two left there
+    /// is no album, and the card keeps its photo.
     /// </summary>
-    private async Task SendAlbumAsync(ITelegramBotClient client, long chatId, FormattedNotification formatted, bool silent, CancellationToken ct)
+    /// <returns>Whether the album, main photo included, went out.</returns>
+    private async Task<bool> SendAlbumAsync(ITelegramBotClient client, long chatId, FormattedNotification formatted, bool silent, CancellationToken ct)
     {
         if (formatted.Album.IsDefaultOrEmpty)
         {
-            return;
+            return false;
         }
 
         var loaded = new List<byte[]>();
-        foreach (var id in formatted.Album)
+        foreach (var id in formatted.Photo.ToList().Concat(formatted.Album))
         {
             var photo = await LoadPhotoAsync(id, ct);
             if (photo.HasValue)
@@ -112,26 +114,24 @@ internal sealed class TelegramOwnerNotifier(
             }
         }
 
-        if (loaded.Count == 1)
+        if (loaded.Count < 2)
         {
-            using var stream = new MemoryStream(loaded[0]);
-            await client.SendPhoto(chatId, InputFile.FromStream(stream, "photo.jpg"), disableNotification: silent, cancellationToken: ct);
+            return false;
         }
-        else if (loaded.Count > 1)
+
+        var streams = loaded.Select(bytes => new MemoryStream(bytes)).ToList();
+        try
         {
-            var streams = loaded.Select(bytes => new MemoryStream(bytes)).ToList();
-            try
-            {
-                await client.SendMediaGroup(
-                    chatId,
-                    streams.Select((stream, i) => new InputMediaPhoto(InputFile.FromStream(stream, $"photo{i}.jpg"))),
-                    disableNotification: silent,
-                    cancellationToken: ct);
-            }
-            finally
-            {
-                streams.ForEach(stream => stream.Dispose());
-            }
+            await client.SendMediaGroup(
+                chatId,
+                streams.Select((stream, i) => new InputMediaPhoto(InputFile.FromStream(stream, $"photo{i}.jpg"))),
+                disableNotification: silent,
+                cancellationToken: ct);
+            return true;
+        }
+        finally
+        {
+            streams.ForEach(stream => stream.Dispose());
         }
     }
 

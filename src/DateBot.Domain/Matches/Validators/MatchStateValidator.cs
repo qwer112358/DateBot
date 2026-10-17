@@ -28,7 +28,10 @@ public sealed class MatchStateValidator : AbstractValidator<MatchState>
             .WithErrorCode("match.many_pending_actions")
             .Must(a => a.Count(x => x.Type == ActionType.SendMessage
                 && x.Status is ActionStatus.Draft or ActionStatus.Pending or ActionStatus.Done) <= 1)
-            .WithErrorCode("match.many_messages");
+            .WithErrorCode("match.many_messages")
+            .Must(a => a.Count(x => x.Type == ActionType.LikeBack
+                && x.Status is ActionStatus.Draft or ActionStatus.Pending or ActionStatus.Done) <= 1)
+            .WithErrorCode("match.many_like_backs");
         RuleFor(m => m)
             .Must(m => m.Kind == MatchKind.LikedMe || m.Actions.All(a => a.Type != ActionType.LikeBack))
             .WithErrorCode("match.like_back_on_mutual");

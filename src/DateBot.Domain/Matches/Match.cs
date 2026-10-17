@@ -15,8 +15,9 @@ namespace DateBot.Domain.Matches;
 
 /// <summary>
 /// Aggregate root: one per person from Tashdate, whether they came from a bot notification or a like in the app.
-/// Invariants: at most one auto-message per person; like back only for <see cref="MatchKind.LikedMe"/>;
-/// status changes only along <c>Received → LikedBack → MessageSent → Done</c>, any open status → Failed.
+/// Invariants: at most one auto-message and one like back per person; like back only for <see cref="MatchKind.LikedMe"/>,
+/// possibly proposed to the owner first; status changes only along <c>Received → LikedBack → MessageSent → Done</c>,
+/// any open status → Failed.
 /// </summary>
 public sealed class Match : AggregateRoot<MatchId>
 {
@@ -91,6 +92,10 @@ public sealed class Match : AggregateRoot<MatchId>
 
     public bool HasLikedBack => _actions.Any(a => a.Type == ActionType.LikeBack && a.Status == ActionStatus.Done);
 
+    /// <summary>A like back offered to the owner on a card and not answered yet.</summary>
+    public Maybe<MatchAction> LikeBackProposal =>
+        _actions.TryFirst(a => a.Type == ActionType.LikeBack && a.Status == ActionStatus.Draft);
+
     public bool CanLikeBack => Kind == MatchKind.LikedMe && Status == MatchStatus.Received;
 
     public bool CanStartMessage =>
@@ -140,6 +145,17 @@ public sealed class Match : AggregateRoot<MatchId>
         Guard.Require(_actions.Count == 0, MatchErrors.InvalidState(Status, "отказ от ответа"))
             .Bind(() => TransitionTo(MatchStatus.Skipped));
 
+    /// <summary>Asks the owner first: a new person's like back waits as a draft until they answer the card.</summary>
+    public UnitResult<Error> ProposeLikeBack(DateTimeOffset now) =>
+        Guard.Require(Kind == MatchKind.LikedMe, MatchErrors.LikeBackNotAllowed)
+            .Bind(() => Guard.Require(Status == MatchStatus.Received && _actions.Count == 0, MatchErrors.InvalidState(Status, "предложение лайка")))
+            .Tap(() =>
+            {
+                _actions.Add(MatchAction.Start(NextSequence, ActionType.LikeBack, ActionStatus.Draft, Maybe<ReplyText>.None, now));
+                Raise(new LikeBackProposed(Id, Profile, now));
+            });
+
+    /// <summary>Starts the like back; a proposed one becomes the like back itself, so a person is never liked twice.</summary>
     public UnitResult<Error> StartLikeBack(DateTimeOffset now)
     {
         // A like back left Pending by a restart is simply repeated.
@@ -151,9 +167,23 @@ public sealed class Match : AggregateRoot<MatchId>
         return Guard.Require(Kind == MatchKind.LikedMe, MatchErrors.LikeBackNotAllowed)
             .Bind(() => Guard.Require(Status == MatchStatus.Received, MatchErrors.InvalidState(Status, "лайк в ответ")))
             .Bind(() => Guard.Require(PendingAction.HasNoValue, MatchErrors.ActionInProgress))
-            .Tap(() => _actions.Add(MatchAction.Start(
-                NextSequence, ActionType.LikeBack, ActionStatus.Pending, Maybe<ReplyText>.None, now)));
+            .Tap(() =>
+            {
+                if (LikeBackProposal.TryGetValue(out var proposal))
+                {
+                    proposal.Approve(now);
+                    return;
+                }
+
+                _actions.Add(MatchAction.Start(NextSequence, ActionType.LikeBack, ActionStatus.Pending, Maybe<ReplyText>.None, now));
+            });
     }
+
+    /// <summary>The owner's no on a like card: nothing is liked, and the person is closed.</summary>
+    public UnitResult<Error> SkipLikeBack(DateTimeOffset now) =>
+        LikeBackProposal
+            .ToResult(MatchErrors.NoLikeBackProposal)
+            .Bind(proposal => TransitionTo(MatchStatus.Skipped).Tap(() => proposal.Skip(now)));
 
     public UnitResult<Error> CompleteLikeBack(DateTimeOffset now) =>
         PendingOf(ActionType.LikeBack)

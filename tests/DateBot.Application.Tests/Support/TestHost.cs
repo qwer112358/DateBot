@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using DateBot.Application.Abstractions.Messaging;
+using DateBot.Application.MiniApp.Services;
 using DateBot.Application.Parsing.Options;
 using DateBot.Application.Ports.Dating;
 using DateBot.Application.Ports.Persistence;
@@ -73,6 +74,9 @@ internal sealed class TestHost : IAsyncDisposable
     public FakePhotoStore Photos { get; } = new();
 
     public ICommandDispatcher Dispatcher => _services.GetRequiredService<ICommandDispatcher>();
+
+    /// <summary>What the main loop would be woken with.</summary>
+    public AppCheckSignal AppCheck => _services.GetRequiredService<AppCheckSignal>();
 
     public Task<Result<ProcessOutcome, Error>> ProcessAsync(RawBotMessage message) =>
         Dispatcher.SendAsync<ProcessBotMessageCommand, ProcessOutcome>(new ProcessBotMessageCommand(message), CancellationToken.None);

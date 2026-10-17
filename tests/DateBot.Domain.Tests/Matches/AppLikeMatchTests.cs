@@ -97,6 +97,74 @@ public sealed class AppLikeMatchTests
     }
 
     [Fact]
+    public void Proposed_like_back_waits_as_a_draft_and_asks_for_a_card()
+    {
+        var match = AppLike();
+        match.PullDomainEvents();
+
+        match.ProposeLikeBack(Now).IsSuccess.Should().BeTrue();
+
+        match.LikeBackProposal.HasValue.Should().BeTrue();
+        match.PendingAction.HasNoValue.Should().BeTrue();
+        match.Status.Should().Be(MatchStatus.Received);
+        match.PullDomainEvents().Should().ContainSingle().Which.Should().BeOfType<LikeBackProposed>();
+    }
+
+    [Fact]
+    public void Approved_proposal_becomes_the_like_back_itself()
+    {
+        var match = AppLike();
+        match.ProposeLikeBack(Now);
+
+        match.StartLikeBack(Now).Bind(() => match.CompleteLikeBack(Now)).IsSuccess.Should().BeTrue();
+
+        match.Actions.Should().ContainSingle().Which.Status.Should().Be(ActionStatus.Done);
+        match.HasLikedBack.Should().BeTrue();
+        match.LikeBackProposal.HasNoValue.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Skipped_proposal_closes_the_person_without_a_like()
+    {
+        var match = AppLike();
+        match.ProposeLikeBack(Now);
+
+        match.SkipLikeBack(Now).IsSuccess.Should().BeTrue();
+
+        match.Status.Should().Be(MatchStatus.Skipped);
+        match.Actions.Single().Status.Should().Be(ActionStatus.Skipped);
+        match.SkipLikeBack(Now).Error.Code.Should().Be("match.no_like_back_proposal");
+    }
+
+    [Fact]
+    public void Like_back_is_proposed_only_once_and_only_to_a_new_liker()
+    {
+        var proposed = AppLike();
+        proposed.ProposeLikeBack(Now);
+        proposed.ProposeLikeBack(Now).IsFailure.Should().BeTrue();
+
+        var started = AppLike();
+        started.StartLikeBack(Now);
+        started.ProposeLikeBack(Now).IsFailure.Should().BeTrue();
+
+        NewMatch(MatchKind.Mutual).ProposeLikeBack(Now).Error.Should().Be(MatchErrors.LikeBackNotAllowed);
+    }
+
+    [Fact]
+    public void Restore_rejects_two_like_backs_for_one_person()
+    {
+        var match = AppLike();
+        MatchActionState LikeBack(int sequence, ActionStatus status) =>
+            new(sequence, ActionType.LikeBack, status, Maybe<ReplyText>.None, Maybe<string>.None, Now, Now, Maybe<BotMessageId>.None, Maybe<MessageChannel>.None);
+
+        var restored = Match.Restore(new MatchState(
+            match.Id, match.PersonId, match.SourceMessageId, match.Kind, match.Profile, match.ReceivedAt, MatchStatus.Received,
+            [LikeBack(1, ActionStatus.Draft), LikeBack(2, ActionStatus.Pending)], match.IsMutual));
+
+        restored.IsFailure.Should().BeTrue();
+    }
+
+    [Fact]
     public void Message_remembers_its_channel()
     {
         var match = AppLike();

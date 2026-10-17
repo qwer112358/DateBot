@@ -66,6 +66,7 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
             "/start" => new StartRequest(chatId, userId),
             "/stop" => new StopRequest(chatId, userId),
             "/status" => new StatusRequest(chatId, userId),
+            "/likes" => new CheckLikesRequest(chatId, userId),
             _ => new UnknownRequest(chatId, userId, text),
         };
     }
@@ -77,7 +78,9 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
             .Or(() => TryId(data, NotificationFormatter.SendPrefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: true)))
             .Or(() => TryId(data, NotificationFormatter.SkipPrefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: false)))
             .Or(() => TryId(data, NotificationFormatter.LookUpPrefix).Map(id => (OwnerRequest)new LookUpContactsRequest(chatId, userId, id)))
-            .Or(() => TryId(data, NotificationFormatter.ForgetPrefix).Map(id => (OwnerRequest)new ForgetRequest(chatId, userId, id)));
+            .Or(() => TryId(data, NotificationFormatter.ForgetPrefix).Map(id => (OwnerRequest)new ForgetRequest(chatId, userId, id)))
+            .Or(() => TryId(data, NotificationFormatter.LikeBackPrefix).Map(id => (OwnerRequest)new LikeBackDecisionRequest(chatId, userId, id, Approve: true)))
+            .Or(() => TryId(data, NotificationFormatter.NoLikeBackPrefix).Map(id => (OwnerRequest)new LikeBackDecisionRequest(chatId, userId, id, Approve: false)));
 
     private async Task<Maybe<OwnerRequest>> ParseCallbackAsync(
         ITelegramBotClient client, CallbackQuery query, Message message, string data, CancellationToken ct)

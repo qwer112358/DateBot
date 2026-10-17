@@ -279,6 +279,26 @@ public sealed class PersistenceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Proposed_like_back_survives_a_restart_and_does_not_use_the_hourly_limit()
+    {
+        var match = AppLike(501);
+        await InScopeAsync(async sp =>
+        {
+            match.ProposeLikeBack(sp.GetRequiredService<IClock>().UtcNow);
+            await sp.GetRequiredService<IMatchRepository>().AddAsync(match, default);
+            await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default);
+        });
+
+        await InScopeAsync(async sp =>
+        {
+            var loaded = (await sp.GetRequiredService<IMatchRepository>().FindByIdAsync(match.Id, default)).Value.GetValueOrThrow();
+            loaded.LikeBackProposal.HasValue.Should().BeTrue();
+            (await sp.GetRequiredService<IRateLimiter>().UsedInLastHourAsync(default)).Value
+                .Should().Be(0, "a card is not an action until you approve it");
+        });
+    }
+
+    [Fact]
     public async Task Draft_keeps_its_anchor_through_the_database()
     {
         var match = NewMatch(MatchKind.LikedMe);

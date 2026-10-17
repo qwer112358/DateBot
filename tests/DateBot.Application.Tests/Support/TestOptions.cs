@@ -1,3 +1,4 @@
+using DateBot.Application.MiniApp.Enums;
 using DateBot.Application.MiniApp.Options;
 using DateBot.Application.Parsing.Enums;
 using DateBot.Application.Parsing.Models;
@@ -64,20 +65,24 @@ internal static class TestOptions
             HistoryBatchSize = 2,
         };
 
-    /// <summary>The shipped setup for Tashdate: drafts wait for you, who picks Telegram or the in-app chat.</summary>
-    public static ProcessingOptions TashdateProcessing(bool miniApp = true, ProcessingMode mode = ProcessingMode.Confirm) => new()
-    {
-        Mode = mode,
-        LikedMeMessage = LikedMeMessagePolicy.AfterLikeBack,
-        MutualRoute = MessageRouteKind.DirectToUser,
-        Channels = [MessageChannel.Telegram, MessageChannel.App],
-        MiniApp = new MiniAppOptions { Enabled = miniApp, MaxLikesPerPass = 10 },
-        LikeBackButtons = ["❤"],
-        MinPause = TimeSpan.FromSeconds(5),
-        MaxPause = TimeSpan.FromSeconds(30),
-        MaxActionsPerHour = 20,
-        HistoryBatchSize = 10,
-    };
+    /// <summary>
+    /// The shipped setup for Tashdate: drafts wait for you, who picks Telegram or the in-app chat. App likes are liked
+    /// back without a card unless <paramref name="likeBack"/> asks for one: most tests are about what follows the like.
+    /// </summary>
+    public static ProcessingOptions TashdateProcessing(
+        bool miniApp = true, ProcessingMode mode = ProcessingMode.Confirm, LikeBackMode likeBack = LikeBackMode.Auto) => new()
+        {
+            Mode = mode,
+            LikedMeMessage = LikedMeMessagePolicy.AfterLikeBack,
+            MutualRoute = MessageRouteKind.DirectToUser,
+            Channels = [MessageChannel.Telegram, MessageChannel.App],
+            MiniApp = new MiniAppOptions { Enabled = miniApp, LikeBack = likeBack, MaxLikesPerPass = 10 },
+            LikeBackButtons = ["❤"],
+            MinPause = TimeSpan.FromSeconds(5),
+            MaxPause = TimeSpan.FromSeconds(30),
+            MaxActionsPerHour = 20,
+            HistoryBatchSize = 10,
+        };
 
     public static ReplyOptions Replies(InvalidReplyPolicy policy = InvalidReplyPolicy.Template, bool usePhoto = true) => new()
     {

@@ -1,6 +1,7 @@
 using CSharpFunctionalExtensions;
 using DateBot.Application.Abstractions.Errors;
 using DateBot.Application.MiniApp;
+using DateBot.Application.MiniApp.Enums;
 using DateBot.Application.MiniApp.Models;
 using DateBot.Application.MiniApp.Options;
 using DateBot.Application.Notifications;
@@ -292,7 +293,7 @@ public sealed class MiniAppTests
                 Mode = processing.Mode,
                 Channels = processing.Channels,
                 LikeBackButtons = processing.LikeBackButtons,
-                MiniApp = new MiniAppOptions { MaxLikesPerPass = 2 },
+                MiniApp = new MiniAppOptions { LikeBack = LikeBackMode.Auto, MaxLikesPerPass = 2 },
             },
             parsing: TestOptions.TashdateParsing());
         foreach (var id in new long[] { 501, 502, 503 })
@@ -303,6 +304,7 @@ public sealed class MiniAppTests
         var first = await host.SyncAppAsync();
 
         first.Value.Answered.Should().Be(2);
+        first.Value.Deferred.Should().Be(1);
         host.App.Liked.Should().HaveCount(2);
     }
 

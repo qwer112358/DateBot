@@ -25,6 +25,7 @@ internal sealed class NotifyOwner(IOwnerNotifier notifier, IOptions<ProcessingOp
         MessageSent { Kind: MatchKind.LikedMe } sent =>
             new LikeHandledNotification(sent.MatchId, sent.Profile, sent.LikedBack, sent.Text, sent.Channel),
         MessageSent sent => new MutualHandledNotification(sent.MatchId, sent.Profile, sent.Text, sent.Channel),
+        LikeBackProposed proposed => new LikeBackProposedNotification(proposed.MatchId, proposed.Profile),
         LikeBackSent { Mutual: false } liked when options.Value.LikedMeMessage == LikedMeMessagePolicy.OnMutual =>
             new LikedBackNotification(liked.MatchId, liked.Profile),
         ReplyDrafted drafted => new DraftReadyNotification(

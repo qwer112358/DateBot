@@ -67,6 +67,9 @@ public sealed class MatchAction
         Set(ActionStatus.Failed, now);
     }
 
+    /// <summary>The owner said yes to a proposed like back: from here on it is an ordinary started one.</summary>
+    internal void Approve(DateTimeOffset now) => Set(ActionStatus.Pending, now);
+
     internal void Promote(ReplyText text, MessageChannel channel, DateTimeOffset now)
     {
         Text = text;

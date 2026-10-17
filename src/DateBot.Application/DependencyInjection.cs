@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using DateBot.Application.Abstractions.Events;
 using DateBot.Application.Abstractions.Messaging;
+using DateBot.Application.MiniApp.Services;
 using DateBot.Application.Parsing.Models;
 using DateBot.Application.Parsing.Options;
 using DateBot.Application.Processing.Services;
@@ -29,6 +30,8 @@ public static class DependencyInjection
         services.AddSingleton<ICommandDispatcher, ScopedCommandDispatcher>();
         services.AddSingleton(sp => ParsingRules.From(sp.GetRequiredService<IOptions<ParsingOptions>>().Value));
 
+        services.AddSingleton<AppCheckSignal>();
+
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         services.AddScoped<IDomainEventHandler, NotifyOwner>();
 
@@ -44,6 +47,7 @@ public static class DependencyInjection
         services.AddCommandHandler<SyncAppLikesCommand, AppSyncReport, SyncAppLikesHandler>();
         services.AddCommandHandler<ProcessAppLikeCommand, ProcessOutcome, ProcessAppLikeHandler>();
         services.AddCommandHandler<SendReplyCommand, DraftDecision, SendReplyHandler>();
+        services.AddCommandHandler<DecideLikeBackCommand, Unit, DecideLikeBackHandler>();
         services.AddCommandHandler<LookUpContactsCommand, ImmutableArray<MessageChannel>, LookUpContactsHandler>();
         services.AddCommandHandler<GetStatusQuery, StatusReport, GetStatusHandler>();
         services.AddCommandHandler<HandleOwnerRequestCommand, Unit, HandleOwnerRequestHandler>();

@@ -42,6 +42,8 @@ Without secrets the service refuses to start and lists what is missing (FluentVa
 | `/start` | Registers the chat for notifications; resumes work if the service was stopped |
 | `/stop` | Emergency stop: no new likes or messages go out; the flag survives a restart |
 | `/status` | Mode, cursor, actions in the last hour, counters of bot messages and profiles |
+| `/likes` | Checks the «Лайки» tab in the app now: new likes come as cards, then a summary (open, hidden until premium, new cards, waiting for your answer) |
+| «❤️ Ответить» / «⏭ Пропустить» | Decision on a like card: like back, then the message as usual (a draft in `Confirm`); or no like, and the like stays in the app for a manual answer |
 | «✈️ В Telegram» / «💬 В приложении» / «⏭ Пропустить» | Decision on a draft in `Confirm` mode: where to send the message, or not to send it. Only channels that reach the person are shown: Telegram if the `@username` is known, the app if the profile id is known |
 | «🔄 Найти в приложении» | On a draft with nowhere to send (the person has no `@username` and was not found in the app): searches again and, if found, sends a card with the «💬 В приложении» button |
 | «🗑 Забыть» | Deletes everything about the person: profile, actions, the original notification, photo. Only a fingerprint of the id stays, so the person is never messaged again |
@@ -52,9 +54,9 @@ Without secrets the service refuses to start and lists what is missing (FluentVa
 2. Every bot message is first stored as is (table `BotMessages` in the SQLite file `%LOCALAPPDATA%\DateBot\datebot.db`), then parsed by the rules from the config.
 3. A new profile creates a `Match` aggregate; the like back and the message are written to the `Actions` journal as `Pending` before they run.
 4. The message's final status and the cursor move are saved in one transaction. FLOOD_WAIT, the hourly limit, `/stop` and network failures leave the message unprocessed; it is retried later without repeating the steps already done.
-5. After the bot chat the service opens the Mini App on your behalf (like the «Открыть знакомства» button does), reads the «Лайки» tab and answers new likes: loads the full profile, likes back with a pause and within the limit, and, since a like back gives a match at once, prepares a message.
+5. After the bot chat the service opens the Mini App on your behalf (like the «Открыть знакомства» button does) and reads the «Лайки» tab. For each new like it loads the full profile and photo and, with `MiniApp:LikeBack = Confirm` (the shipped config), sends you a card with «❤️ Ответить» and «⏭ Пропустить». After «❤️ Ответить» it likes back with a pause and within the limit and, since a like back gives a match at once, prepares a message. With `Auto` it likes back without a card.
 6. In `Confirm` mode (the shipped config) the draft with the profile and photo comes to the notifier bot, and you choose where to send it: Telegram DM or the in-app chat. If a channel refuses (say, the person closed DMs), the card comes again so you can pick another.
-7. Then the service waits for new bot messages (live updates) and re-reads the chat every `PollInterval`; app likes are checked every `MiniApp:PollInterval` and right after the bot's «Тобой интересуются» hint.
+7. Then the service waits for new bot messages (live updates) and re-reads the chat every `PollInterval`; app likes are checked every `MiniApp:PollInterval`, right after the bot's «Тобой интересуются» hint, and on `/likes`.
 
 Some match cards come without `@username` because the person has none. Telegram is then out, and the service looks for the person among the app's matches without `@username` with the same name. If there is exactly one, the card comes with the «💬 В приложении» button. If there is none, or there are several namesakes, the draft still comes, marked "nowhere to send", so you learn about the match and can write yourself. This works in `Auto` mode too.
 
@@ -87,8 +89,9 @@ Buttons and the sending method are set in the `Processing` section:
 | `MutualRoute` | `DirectToUser` | Preferred channel in `Auto` and the button order: `DirectToUser` (Telegram), `AppChat` (in-app chat), `ViaBot` |
 | `Channels` | `Telegram, App` | Allowed channels. The Tashdate bot does not forward text to profiles, so `BotChat` is off |
 | `MiniApp:Enabled` | `true` | Answers to likes and the chat go through the Mini App; `false` = bot chat only |
+| `MiniApp:LikeBack` | `Confirm` | `Confirm`: a new like comes as a card, the like back waits for «❤️ Ответить». `Auto`: liked back at once |
 | `MiniApp:PollInterval` | 10 min | How often to check the «Лайки» tab |
-| `MiniApp:MaxLikesPerPass` | 10 | How many new likes one check handles |
+| `MiniApp:MaxLikesPerPass` | 10 | How many new likes one check answers or sends as cards |
 | `LikeBackButtons` | `❤, 👍, Лайк, Like, Yoqdi` | Like button captions (substring match) |
 | `MessageButtons` | empty | "Write a message" button pressed before sending text to the bot |
 | `MinPause` / `MaxPause` | 5 s / 30 s | Random pause before each action |
@@ -151,6 +154,7 @@ dotnet test DateBot.slnx
 - **Data outside the repository.** The session, DB and photos default to `%LOCALAPPDATA%\DateBot`, so a rebuild or `git clean` cannot remove them. The spec's "database next to the app" is one setting away: `Storage:DataDirectory`.
 - **First run.** Without a cursor the service starts from now instead of reading the whole bot chat from the beginning (`FirstRunBackfill`).
 - **Bot chat and app take turns.** One loop first reads the bot chat, then answers app likes, so a match card cannot overtake the like back that caused it. The app's daily like limit (30, 50 after verification) pauses only likes: matches and messages keep working, and you get one notification.
+- **A like card only wakes the loop.** «❤️ Ответить» marks the like back as started and wakes the main loop, which performs it like any unfinished like back; `/likes` wakes it too. Every app action stays in that one loop, so your answer cannot race with a pass over the same person, and a yes survives a restart. A card is not an action: it does not count towards `MaxActionsPerHour`.
 - **A retry to the in-app chat is recognisable.** Each message carries a `client_key` equal to the DateBot profile id, and the app drops a duplicate by it. The rule "unknown whether sent, so no retry" still applies here.
 - **Mini App sign-in without a browser.** Telegram signs `initData` on a `messages.requestWebView` request from your account, just as when the button is pressed; no app password is needed or stored.
 - **Own dispatcher instead of MediatR.** Each command runs in its own DI scope; input validation is a decorator.
@@ -174,6 +178,5 @@ About likes the bot only drops hints («Тобой интересуются», �
 ## Open questions
 
 - The responses of `POST /api/like` and `POST /api/chat/send` come from the Mini App code; the first real like and message will confirm them (the log will show "Signed in to the Mini App…").
-- On the first run the service also answers the likes already waiting in the «Лайки» tab (at most `MaxLikesPerPass` per check). If you do not want that, set `Processing:MiniApp:Enabled = false` before the first run and answer them by hand.
 - Whether the bot sends anything else to the chat (service messages, broadcasts); add those to `IgnoreMarkers` when they show up in `ParseFailed`.
 - Tashdate's rules on automation, and the choice of account: automating a user account and using the app's internal API can get it banned, so better not use your main account.

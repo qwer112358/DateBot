@@ -8,6 +8,6 @@ public enum MatchStatus
     Done = 4,
     Failed = 5,
 
-    /// <summary>The owner pressed "Skip" on a draft in Confirm mode.</summary>
+    /// <summary>The owner pressed "Skip" on a draft or a like card, or the filters declined the person.</summary>
     Skipped = 6,
 }

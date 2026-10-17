@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DateBot.Application.MiniApp.Enums;
 using DateBot.Application.Parsing.BotNotifications;
 using DateBot.Application.Parsing.Models;
 using DateBot.Application.Parsing.Options;
@@ -60,6 +61,7 @@ public sealed class ConfigurationTests
         processing.Mode.Should().Be(ProcessingMode.Confirm);
         processing.Channels.Should().Equal(MessageChannel.Telegram, MessageChannel.App);
         processing.MiniApp.Enabled.Should().BeTrue();
+        processing.MiniApp.LikeBack.Should().Be(LikeBackMode.Confirm, "no like back goes out without your yes");
         processing.MiniApp.PollInterval.Should().Be(TimeSpan.FromMinutes(10));
     }
 

@@ -22,6 +22,8 @@ public static class NotificationFormatter
     public const string LookUpPrefix = "find:";
     public const string SkipPrefix = "skip:";
     public const string ForgetPrefix = "forget:";
+    public const string LikeBackPrefix = "like:";
+    public const string NoLikeBackPrefix = "nolike:";
 
     public static FormattedNotification Format(OwnerNotification notification) => notification switch
     {
@@ -46,6 +48,12 @@ public static class NotificationFormatter
             $"✍️ <b>Черновик</b> ({DraftReason(n)})\n{Header(n.Profile)}{Contacts(n.Profile)}{Details(n.Profile)}\n\n<b>Черновик:</b>\n«{E(n.Draft.Value)}»\n\nКуда отправить?",
             [.. n.Channels.Select(channel => SendButton(channel, n.MatchId)), new InlineAction("⏭ Пропустить", SkipPrefix + n.MatchId)],
             n.Profile.Photo),
+        LikeBackProposedNotification n => About(
+            n.Profile,
+            $"💛 <b>Вас лайкнули</b>\n{Header(n.Profile)}{Details(n.Profile)}\n\nОтветить взаимным лайком?",
+            new InlineAction("❤️ Ответить", LikeBackPrefix + n.MatchId),
+            new InlineAction("⏭ Пропустить", NoLikeBackPrefix + n.MatchId)),
+        AppLikesCheckedNotification n => Text(Likes(n.Report)),
         ParseFailedNotification n => Text(
             $"⚠️ <b>Не удалось разобрать сообщение бота</b> #{n.BotMessageId}\nПричина: {E(n.Reason)}\n\n<pre>{E(Truncate(n.RawText, 2500))}</pre>"),
         ActionFailedNotification n => About(
@@ -144,6 +152,31 @@ public static class NotificationFormatter
             .AppendLine($"Сообщения бота: {Counts(report.Inbox, InboxNames)}")
             .Append($"Анкеты: {Counts(report.Matches, MatchNames)}");
         return text.ToString();
+    }
+
+    private static string Likes(AppSyncReport report)
+    {
+        var text = new StringBuilder($"💛 <b>Лайки в приложении</b>: открытых {report.Open}");
+        if (report.Hidden > 0)
+        {
+            text.Append($", скрытых до премиума {report.Hidden}");
+        }
+
+        (int Count, string Line)[] lines =
+        [
+            (report.Proposed, "🆕 новых карточек"),
+            (report.Waiting, "⏳ ждут вашего ответа (карточки выше)"),
+            (report.Answered, "❤️ лайк в ответ поставлен"),
+            (report.Ignored, "✔️ уже разобраны"),
+            (report.Failed, "❌ ошибок"),
+            (report.Deferred, "⏭ не дошла очередь, будут при следующей проверке"),
+        ];
+        foreach (var (count, line) in lines.Where(l => l.Count > 0))
+        {
+            text.Append($"\n{line}: {count}");
+        }
+
+        return report.Open == 0 ? text.Append("\nОтвечать пока не на что.").ToString() : text.ToString();
     }
 
     private static readonly Dictionary<InboxStatus, string> InboxNames = new()

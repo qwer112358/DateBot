@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using DateBot.Application.Notifications;
+using DateBot.Application.UseCases.Models;
 using DateBot.Application.UseCases.OwnerRequests;
 using DateBot.Domain.Common.Errors;
 using DateBot.Domain.Matches.Enums;
@@ -54,6 +55,7 @@ public sealed class NotifierTests
             new ActionFailedNotification(Id, profile, Error.External("telegram.rpc", "boom")),
             Draft(profile, MessageChannel.Telegram),
             Draft(profile),
+            new LikeBackProposedNotification(Id, profile),
         ];
 
         aboutPerson.Select(n => NotificationFormatter.Format(n).Photo)
@@ -97,6 +99,35 @@ public sealed class NotifierTests
     }
 
     [Fact]
+    public void Like_card_shows_the_profile_and_its_buttons_round_trip()
+    {
+        var formatted = NotificationFormatter.Format(new LikeBackProposedNotification(Id, Profile("Лола")));
+
+        formatted.Html.Should().Contain("Вас лайкнули").And.Contain("Лола, 24").And.Contain("Люблю горы");
+        formatted.Photo.Should().Be(Maybe.From(PhotoFileId.Create("photo:1").Value));
+        formatted.Buttons.Select(b => b.Text).Should().Equal("❤️ Ответить", "⏭ Пропустить");
+        formatted.Buttons.Select(b => OwnerBotPoller.ParseCallback(7, 42, b.Data).GetValueOrThrow()).Should().Equal(
+            new LikeBackDecisionRequest(7, 42, Id.Value, Approve: true),
+            new LikeBackDecisionRequest(7, 42, Id.Value, Approve: false));
+        formatted.Buttons.Should().OnlyContain(b => b.Data.Length <= 64);
+    }
+
+    [Fact]
+    public void Likes_summary_lists_only_what_happened()
+    {
+        var html = NotificationFormatter.Format(new AppLikesCheckedNotification(
+            new AppSyncReport(Open: 5, Hidden: 2, Done: 0, Drafted: 1, Ignored: 0, Failed: 0, Proposed: 3, Waiting: 1, Deferred: 0))).Html;
+
+        html.Should().Contain("открытых 5, скрытых до премиума 2")
+            .And.Contain("новых карточек: 3")
+            .And.Contain("ждут вашего ответа (карточки выше): 1")
+            .And.Contain("лайк в ответ поставлен: 1");
+        html.Should().NotContain("ошибок").And.NotContain("не дошла очередь");
+        NotificationFormatter.Format(new AppLikesCheckedNotification(AppSyncReport.Start(0, 0))).Html
+            .Should().Contain("Отвечать пока не на что");
+    }
+
+    [Fact]
     public void Send_button_of_an_older_card_still_works() =>
         OwnerBotPoller.ParseCallback(7, 42, "send:" + IdN).GetValueOrThrow()
             .Should().Be(new DraftDecisionRequest(7, 42, Id.Value, Approve: true));
@@ -105,6 +136,7 @@ public sealed class NotifierTests
     [InlineData("/start", typeof(StartRequest))]
     [InlineData("/stop", typeof(StopRequest))]
     [InlineData("/status@my_notifier_bot", typeof(StatusRequest))]
+    [InlineData("/likes", typeof(CheckLikesRequest))]
     [InlineData("привет", typeof(UnknownRequest))]
     public void Commands_are_parsed(string text, Type expected) =>
         OwnerBotPoller.ParseCommand(7, 42, text).Should().BeOfType(expected);

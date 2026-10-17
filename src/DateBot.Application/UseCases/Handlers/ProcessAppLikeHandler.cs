@@ -1,6 +1,7 @@
 using CSharpFunctionalExtensions;
 using DateBot.Application.Abstractions.Errors;
 using DateBot.Application.Abstractions.Messaging;
+using DateBot.Application.MiniApp.Enums;
 using DateBot.Application.Parsing.Models;
 using DateBot.Application.Parsing.Services;
 using DateBot.Application.Ports.Dating;
@@ -24,8 +25,9 @@ namespace DateBot.Application.UseCases.Handlers;
 
 /// <summary>
 /// One like from the app: find or create the match (the full profile is loaded only for a new person) → like back
-/// through the app → the message step (a draft in Confirm mode). Retryable errors leave the like for the next pass;
-/// other errors fail the match.
+/// through the app → the message step (a draft in Confirm mode). With <see cref="LikeBackMode.Confirm"/> the like back
+/// first goes to you as a card; once you approve it, it is Pending and the next pass does it like any other.
+/// Retryable errors leave the like for the next pass; other errors fail the match.
 /// </summary>
 internal sealed class ProcessAppLikeHandler(
     ITashdateApp app,
@@ -98,13 +100,27 @@ internal sealed class ProcessAppLikeHandler(
                 .Map(() => match));
 
     private Task<Result<ProcessOutcome, Error>> ExecuteAsync(Match match, CancellationToken ct) =>
-        ScenarioPlanner.Plan(MatchKind.LikedMe, Maybe.None, match) switch
-        {
-            ExecutePlan plan => RunStepsAsync(match, plan, ct),
-            IgnorePlan ignore => Ignore(ignore.Reason),
-            var other => Task.FromResult(Result.Failure<ProcessOutcome, Error>(
-                Error.Unexpected("plan.unknown", $"Неизвестный план {other.GetType().Name}"))),
-        };
+        AwaitsOwner(match)
+            ? ProposeAsync(match, ct)
+            : ScenarioPlanner.Plan(MatchKind.LikedMe, Maybe.None, match) switch
+            {
+                ExecutePlan plan => RunStepsAsync(match, plan, ct),
+                IgnorePlan ignore => Ignore(ignore.Reason),
+                var other => Task.FromResult(Result.Failure<ProcessOutcome, Error>(
+                    Error.Unexpected("plan.unknown", $"Неизвестный план {other.GetType().Name}"))),
+            };
+
+    /// <summary>The owner has not said yes yet: an approved like back is already Pending.</summary>
+    private bool AwaitsOwner(Match match) =>
+        options.Value.MiniApp.LikeBack == LikeBackMode.Confirm && match.CanLikeBack && match.PendingAction.HasNoValue;
+
+    /// <summary>The card goes out once (the photo is stored by then); later passes only count it as waiting.</summary>
+    private Task<Result<ProcessOutcome, Error>> ProposeAsync(Match match, CancellationToken ct) =>
+        match.LikeBackProposal.HasValue
+            ? Task.FromResult(Result.Success<ProcessOutcome, Error>(ProcessOutcome.LikeBackAwaiting))
+            : match.ProposeLikeBack(clock.UtcNow)
+                .Bind(() => unitOfWork.CommitAsync(ct))
+                .Map(() => ProcessOutcome.LikeBackProposed);
 
     private async Task<Result<ProcessOutcome, Error>> RunStepsAsync(Match match, ExecutePlan plan, CancellationToken ct)
     {

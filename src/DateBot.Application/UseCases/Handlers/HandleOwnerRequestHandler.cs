@@ -1,10 +1,13 @@
 using System.Collections.Immutable;
 using CSharpFunctionalExtensions;
 using DateBot.Application.Abstractions.Messaging;
+using DateBot.Application.MiniApp.Enums;
+using DateBot.Application.MiniApp.Services;
 using DateBot.Application.Notifications;
 using DateBot.Application.Ports.Persistence;
 using DateBot.Application.Ports.Services;
 using DateBot.Application.Processing.Models;
+using DateBot.Application.Processing.Options;
 using DateBot.Application.UseCases.Commands;
 using DateBot.Application.UseCases.Enums;
 using DateBot.Application.UseCases.Models;
@@ -13,6 +16,7 @@ using DateBot.Application.UseCases.Queries;
 using DateBot.Domain.Common.Errors;
 using DateBot.Domain.Matches.Enums;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DateBot.Application.UseCases.Handlers;
 
@@ -25,10 +29,13 @@ internal sealed class HandleOwnerRequestHandler(
     IUnitOfWork unitOfWork,
     IOwnerNotifier notifier,
     ICommandDispatcher dispatcher,
+    AppCheckSignal appCheck,
+    IOptions<ProcessingOptions> options,
     ILogger<HandleOwnerRequestHandler> logger)
     : ICommandHandler<HandleOwnerRequestCommand, Unit>
 {
-    private const string Help = "Команды: /start — включить и получать уведомления, /stop — экстренная остановка, /status — сводка.";
+    private const string Help =
+        "Команды: /start — включить и получать уведомления, /stop — экстренная остановка, /status — сводка, /likes — проверить лайки в приложении.";
 
     public Task<Result<Unit, Error>> HandleAsync(HandleOwnerRequestCommand command, CancellationToken ct) =>
         control.GetAsync(ct)
@@ -67,8 +74,36 @@ internal sealed class HandleOwnerRequestHandler(
             ForgetRequest forget => dispatcher
                 .SendAsync<ForgetMatchCommand, Unit>(new ForgetMatchCommand(forget.MatchId), ct)
                 .Map(_ => (OwnerNotification)new TextNotification("Данные об этом человеке удалены.")),
+            CheckLikesRequest => Task.FromResult(Answer(RequestLikesCheck(state))),
+            LikeBackDecisionRequest decision => dispatcher
+                .SendAsync<DecideLikeBackCommand, Unit>(new DecideLikeBackCommand(decision.MatchId, decision.Approve), ct)
+                .Map(_ => (OwnerNotification)new TextNotification(LikeBackAnswer(state, decision.Approve))),
             _ => Task.FromResult(Answer(Help)),
         };
+
+    /// <summary>Wakes the main loop; the summary comes once it has checked the app.</summary>
+    private string RequestLikesCheck(ControlState state)
+    {
+        if (!options.Value.MiniApp.Enabled)
+        {
+            return "Mini App выключена (Processing:MiniApp:Enabled = false): лайки в приложении не проверяются.";
+        }
+
+        if (state.Paused)
+        {
+            return "Сервис остановлен: /start — продолжить.";
+        }
+
+        appCheck.Request(AppCheckRequest.Report);
+        return "🔎 Проверяю лайки в приложении: новые придут карточками, потом сводка.";
+    }
+
+    private static string LikeBackAnswer(ControlState state, bool approve) => (approve, state.Paused) switch
+    {
+        (false, _) => "Пропущено. Лайк в приложении остаётся, ответить можно вручную.",
+        (true, true) => "Принято. Сервис остановлен: лайк поставлю после /start.",
+        _ => "Принято: ставлю лайк в ответ.",
+    };
 
     private static string DecisionAnswer(DraftDecision decision, MessageChannel? channel) => (decision, channel) switch
     {

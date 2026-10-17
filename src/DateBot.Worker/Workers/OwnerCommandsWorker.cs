@@ -4,7 +4,7 @@ using DateBot.Infrastructure.Notifier.Services;
 
 namespace DateBot.Worker.Workers;
 
-/// <summary>Receives /start, /stop, /status and button presses from the notifier bot.</summary>
+/// <summary>Receives your commands (/start, /stop, /status, /likes) and button presses from the notifier bot.</summary>
 internal sealed class OwnerCommandsWorker(
     OwnerBotPoller poller,
     ICommandDispatcher dispatcher,

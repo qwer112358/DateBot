@@ -18,6 +18,9 @@ public static class MatchErrors
     public static readonly Error NoDraft = Error.Conflict(
         "match.no_draft", "У анкеты нет черновика сообщения");
 
+    public static readonly Error NoLikeBackProposal = Error.Conflict(
+        "match.no_like_back_proposal", "По этому лайку решение уже принято");
+
     public static readonly Error SendOutcomeUnknown = Error.Conflict(
         "match.send_outcome_unknown",
         "Отправка сообщения прервалась перезапуском; повтор не делаем, чтобы не написать дважды");

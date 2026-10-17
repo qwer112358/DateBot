@@ -2,7 +2,7 @@ namespace DateBot.Domain.Matches.Enums;
 
 public enum ActionStatus
 {
-    /// <summary>Message prepared in Confirm mode, waiting for the owner.</summary>
+    /// <summary>Waiting for the owner: a message draft (Confirm mode) or a like back offered on a card.</summary>
     Draft = 1,
 
     /// <summary>Started but not confirmed yet; survives restarts.</summary>

@@ -15,9 +15,9 @@ using Microsoft.Extensions.Options;
 namespace DateBot.Application.UseCases.Handlers;
 
 /// <summary>
-/// Reads the app's incoming likes and answers them one by one, in the app's order, each in its own scope. Known people
+/// Reads the app's incoming likes and handles them one by one, in the app's order, each in its own scope. Known people
 /// cost only a database lookup, so the whole list is walked; at most <see cref="MiniAppOptions.MaxLikesPerPass"/>
-/// new people are answered per pass. The first retryable error (limit, pause, network) ends the pass.
+/// new people are answered or sent to you as cards per pass. The first retryable error (limit, pause, network) ends the pass.
 /// </summary>
 internal sealed class SyncAppLikesHandler(
     ITashdateApp app,
@@ -38,14 +38,14 @@ internal sealed class SyncAppLikesHandler(
     private async Task<Result<AppSyncReport, Error>> AnswerAsync(AppIncomingLikes likes, CancellationToken ct)
     {
         var report = AppSyncReport.Start(likes.Open.Length, likes.Hidden);
-        foreach (var like in likes.Open)
+        for (var i = 0; i < likes.Open.Length; i++)
         {
-            if (report.Answered >= options.Value.MiniApp.MaxLikesPerPass)
+            if (report.Handled >= options.Value.MiniApp.MaxLikesPerPass)
             {
-                break;
+                return report with { Deferred = likes.Open.Length - i };
             }
 
-            var outcome = await dispatcher.SendAsync<ProcessAppLikeCommand, ProcessOutcome>(new ProcessAppLikeCommand(like), ct);
+            var outcome = await dispatcher.SendAsync<ProcessAppLikeCommand, ProcessOutcome>(new ProcessAppLikeCommand(likes.Open[i]), ct);
             if (outcome.IsFailure)
             {
                 return outcome.Error;

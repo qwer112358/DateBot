@@ -52,9 +52,9 @@ public sealed class MiniAppTests
 
         await host.SyncAppAsync();
 
-        var (prompt, photo) = host.Generator.Calls.Single();
+        var (prompt, photos) = host.Generator.Calls.Single();
         prompt.User.Should().Contain("Обожаю джаз и рамен").And.Contain("Кофе, Походы").And.Contain("Питомцы: кошка");
-        photo.HasValue.Should().BeTrue();
+        photos.Should().NotBeEmpty();
         host.Photos.Photos.Should().ContainKey("app:p501.jpg");
     }
 

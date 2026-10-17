@@ -33,9 +33,9 @@ internal sealed class SyncAppLikesHandler(
         control.GetAsync(ct)
             .Ensure(state => !state.Paused, ServiceErrors.Paused)
             .Bind(_ => app.GetIncomingLikesAsync(MaxListed, ct))
-            .Bind(likes => AnswerAsync(likes, ct));
+            .Bind(likes => AnswerAsync(command, likes, ct));
 
-    private async Task<Result<AppSyncReport, Error>> AnswerAsync(AppIncomingLikes likes, CancellationToken ct)
+    private async Task<Result<AppSyncReport, Error>> AnswerAsync(SyncAppLikesCommand command, AppIncomingLikes likes, CancellationToken ct)
     {
         var report = AppSyncReport.Start(likes.Open.Length, likes.Hidden);
         for (var i = 0; i < likes.Open.Length; i++)
@@ -45,7 +45,7 @@ internal sealed class SyncAppLikesHandler(
                 return report with { Deferred = likes.Open.Length - i };
             }
 
-            var outcome = await dispatcher.SendAsync<ProcessAppLikeCommand, ProcessOutcome>(new ProcessAppLikeCommand(likes.Open[i]), ct);
+            var outcome = await dispatcher.SendAsync<ProcessAppLikeCommand, ProcessOutcome>(new ProcessAppLikeCommand(likes.Open[i], command.ResendWaiting), ct);
             if (outcome.IsFailure)
             {
                 return outcome.Error;

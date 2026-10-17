@@ -42,7 +42,7 @@ Without secrets the service refuses to start and lists what is missing (FluentVa
 | `/start` | Registers the chat for notifications; resumes work if the service was stopped |
 | `/stop` | Emergency stop: no new likes or messages go out; the flag survives a restart |
 | `/status` | Mode, cursor, actions in the last hour, counters of bot messages and profiles |
-| `/likes` | Checks the «Лайки» tab in the app now: new likes come as cards, then a summary (open, hidden until premium, new cards, waiting for your answer) |
+| `/likes` | Checks the «Лайки» tab in the app now: new likes come as cards, the cards still waiting for your answer come again with their album, then a summary (open, hidden until premium, new cards, waiting) |
 | «❤️ Ответить» / «⏭ Пропустить» | Decision on a like card: like back, then the message as usual (a draft in `Confirm`); or no like, and the like stays in the app for a manual answer |
 | «✈️ В Telegram» / «💬 В приложении» / «⏭ Пропустить» | Decision on a draft in `Confirm` mode: where to send the message, or not to send it. Only channels that reach the person are shown: Telegram if the `@username` is known, the app if the profile id is known |
 | «🔄 Найти в приложении» | On a draft with nowhere to send (the person has no `@username` and was not found in the app): searches again and, if found, sends a card with the «💬 В приложении» button |
@@ -65,7 +65,7 @@ Some match cards come without `@username` because the person has none. Telegram 
 
 One person can arrive both as an app like and as a match card in the bot chat. The service recognises them by any key (app profile id, `@username`) and does not message them twice. A match card for someone you liked yourself in the feed is enriched with the app profile: the bio and interests go into the prompt, and the in-app chat becomes an available channel.
 
-The profile photos are downloaded as soon as the person appears (from the bot chat or the app) and kept locally in `%LOCALAPPDATA%\DateBot\photos`: from the app all of them (up to ten), from a bot match card its one photo. The main photo comes to the notifier bot with every message about that person: draft, "sent", "liked back", error. The other photos come as an album just above the first card about the person, so you can look the profile through: the like card, or the first draft when there was no like card. An edited or re-sent draft does not repeat the album. Separately the main photo goes to Claude along with the profile text (the others do not): the model may build on a neutral detail (a place, an activity, a pet). `Replies:UsePhoto = false` turns off only the Claude part; notifications keep the photos.
+The profile photos are downloaded as soon as the person appears (from the bot chat or the app) and kept locally in `%LOCALAPPDATA%\DateBot\photos`: from the app all of them (up to ten), from a bot match card its one photo. The main photo comes to the notifier bot with every message about that person: draft, "sent", "liked back", error. The other photos come as an album just above the first card about the person, so you can look the profile through: the like card, or the first draft when there was no like card. An edited or re-sent draft does not repeat the album. Separately all the photos, main first, go to Claude along with the profile text, so the model can build on what they show. `Replies:UsePhoto = false` turns off only the Claude part; notifications keep the photos.
 
 ## Parsing configuration
 

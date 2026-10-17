@@ -12,11 +12,11 @@ internal sealed class FakeReplyGenerator : IReplyGenerator
 
     public Func<ReplyPrompt, Result<string, Error>> Respond { get; set; } = _ => Result.Success<string, Error>(GoodReply);
 
-    public List<(ReplyPrompt Prompt, Maybe<ProfilePhoto> Photo)> Calls { get; } = [];
+    public List<(ReplyPrompt Prompt, IReadOnlyList<ProfilePhoto> Photos)> Calls { get; } = [];
 
-    public Task<Result<string, Error>> GenerateAsync(ReplyPrompt prompt, Maybe<ProfilePhoto> photo, CancellationToken ct)
+    public Task<Result<string, Error>> GenerateAsync(ReplyPrompt prompt, IReadOnlyList<ProfilePhoto> photos, CancellationToken ct)
     {
-        Calls.Add((prompt, photo));
+        Calls.Add((prompt, photos));
         return Task.FromResult(Respond(prompt));
     }
 }

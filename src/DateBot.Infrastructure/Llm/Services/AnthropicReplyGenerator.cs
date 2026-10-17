@@ -22,7 +22,7 @@ internal sealed class AnthropicReplyGenerator(
     ILogger<AnthropicReplyGenerator> logger)
     : IReplyGenerator
 {
-    public async Task<Result<string, DomainError>> GenerateAsync(ReplyPrompt prompt, Maybe<ProfilePhoto> photo, CancellationToken ct)
+    public async Task<Result<string, DomainError>> GenerateAsync(ReplyPrompt prompt, IReadOnlyList<ProfilePhoto> photos, CancellationToken ct)
     {
         var settings = options.Value;
         if (string.IsNullOrWhiteSpace(settings.ApiKey))
@@ -31,14 +31,14 @@ internal sealed class AnthropicReplyGenerator(
         }
 
         var content = new List<ContentBlockParam>();
-        if (photo.HasValue)
+        foreach (var photo in photos)
         {
             content.Add(new ImageBlockParam
             {
                 Source = new Base64ImageSource
                 {
-                    Data = Convert.ToBase64String(photo.GetValueOrThrow().Content.Span),
-                    MediaType = ToMediaType(photo.GetValueOrThrow().MediaType),
+                    Data = Convert.ToBase64String(photo.Content.Span),
+                    MediaType = ToMediaType(photo.MediaType),
                 },
             });
         }

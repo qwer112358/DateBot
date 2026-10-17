@@ -52,6 +52,48 @@ public sealed class ProfileAlbumTests
     }
 
     [Fact]
+    public async Task Model_sees_every_photo_main_first()
+    {
+        await using var host = Host(LikeBackMode.Auto);
+        host.App.AddLike(501, "Лола", extraPhotos: 2);
+
+        await host.SyncAppAsync();
+
+        host.Generator.Calls.Single().Photos.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task Likes_command_sends_waiting_cards_again_with_their_album()
+    {
+        await using var host = Host(LikeBackMode.Confirm);
+        host.App.AddLike(501, "Лола", extraPhotos: 2);
+        await host.SyncAppAsync();
+
+        await host.SyncAppAsync();
+        var resent = await host.SyncAppAsync(resendWaiting: true);
+
+        resent.Value.Waiting.Should().Be(1);
+        host.Notifier.Sent.OfType<LikeBackProposedNotification>().Should().HaveCount(2, "a plain pass does not repeat the card")
+            .And.OnlyContain(card => card.Profile.ExtraPhotos.Items.Length == 2);
+    }
+
+    [Fact]
+    public async Task Card_from_before_albums_gets_its_photos_when_sent_again()
+    {
+        await using var host = Host(LikeBackMode.Confirm);
+        host.App.AddLike(501, "Лола");
+        await host.SyncAppAsync();
+        host.App.Profiles[501] = host.App.Profiles[501] with { PhotoFiles = ["p501.jpg", "p501-2.jpg", "p501-3.jpg"] };
+
+        await host.SyncAppAsync(resendWaiting: true);
+
+        host.Notifier.Sent.OfType<LikeBackProposedNotification>().Last().Profile.ExtraPhotos.Items
+            .Select(p => p.Value).Should().Equal("app:p501-2.jpg", "app:p501-3.jpg");
+        host.Store.SingleMatch.Profile.ExtraPhotos.Items.Should().HaveCount(2, "kept for later cards");
+        host.Photos.Photos.Should().ContainKey("app:p501-3.jpg");
+    }
+
+    [Fact]
     public async Task Forget_deletes_every_photo()
     {
         await using var host = Host(LikeBackMode.Confirm);

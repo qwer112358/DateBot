@@ -63,9 +63,9 @@ public sealed class DraftEditTests
         await host.OwnerAsync(new EditDraftRequest(7, 42, match.Id.Value, DraftEditKind.Hint));
         await host.OwnerAsync(new UnknownRequest(7, 42, "короче и спроси про горы"));
 
-        var (prompt, photo) = host.Generator.Calls.Last();
+        var (prompt, photos) = host.Generator.Calls.Last();
         prompt.User.Should().Contain("<draft>").And.Contain("Пожелание владельца: короче и спроси про горы").And.Contain("Люблю кофе и горы");
-        photo.HasValue.Should().BeTrue();
+        photos.Should().NotBeEmpty();
         host.Notifier.Sent.OfType<DraftReadyNotification>().Last().Draft.Value.Should().Be(rewritten);
     }
 

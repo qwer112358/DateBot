@@ -127,7 +127,7 @@ internal sealed class TashdateWorker(
             return;
         }
 
-        var synced = await dispatcher.SendAsync<SyncAppLikesCommand, AppSyncReport>(new SyncAppLikesCommand(), ct);
+        var synced = await dispatcher.SendAsync<SyncAppLikesCommand, AppSyncReport>(new SyncAppLikesCommand(ResendWaiting: report), ct);
         if (report)
         {
             await notifier.NotifyAsync(synced.IsSuccess

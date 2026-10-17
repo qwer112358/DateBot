@@ -4,7 +4,6 @@ using DateBot.Application.Ports.Persistence;
 using DateBot.Application.Ports.Services;
 using DateBot.Application.Replies.Options;
 using DateBot.Application.Replies.Services;
-using DateBot.Application.Telegram.Models;
 using DateBot.Application.UseCases.Commands;
 using DateBot.Application.UseCases.Enums;
 using DateBot.Application.UseCases.Services;
@@ -42,7 +41,7 @@ internal sealed class ReviseDraftHandler(
 
     private async Task<Result<ReplyText, Error>> RewriteAsync(Match match, ReplyText draft, string hint, CancellationToken ct)
     {
-        var photo = replies.Value.UsePhoto ? await photos.GetAsync(match, ct) : Maybe<ProfilePhoto>.None;
-        return await composer.ReviseAsync(match.Profile, photo, draft, hint, ct);
+        var all = await photos.GetAllAsync(match, ct);
+        return await composer.ReviseAsync(match.Profile, replies.Value.UsePhoto ? all : [], draft, hint, ct);
     }
 }

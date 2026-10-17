@@ -22,7 +22,7 @@ public sealed class OwnerPhotoTests
 
         await host.ProcessAsync(TashdateMatch(40));
 
-        host.Generator.Calls.Single().Photo.HasNoValue.Should().BeTrue();
+        host.Generator.Calls.Single().Photos.Should().BeEmpty();
         host.Photos.Photos.Should().ContainKey("photo:222");
         host.Notifier.Sent.OfType<DraftReadyNotification>().Single().Profile.Photo.Should().Be(host.Store.SingleMatch.Profile.Photo);
     }

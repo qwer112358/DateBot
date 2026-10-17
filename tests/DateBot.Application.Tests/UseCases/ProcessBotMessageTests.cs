@@ -38,7 +38,7 @@ public sealed class ProcessBotMessageTests
         host.Store.SingleMatch.Status.Should().Be(MatchStatus.Done);
         host.Store.Inbox[10].Status.Should().Be(InboxStatus.Done);
         host.Store.Cursor.Position.Should().Be(10);
-        host.Generator.Calls.Single().Photo.HasValue.Should().BeTrue();
+        host.Generator.Calls.Single().Photos.Should().NotBeEmpty();
         host.Photos.Photos.Should().ContainKey("photo:111");
         host.Notifier.Sent.OfType<LikeHandledNotification>().Should().ContainSingle().Which.LikedBack.Should().BeTrue();
         host.Clock.Delays.Should().Contain([TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(3)]);

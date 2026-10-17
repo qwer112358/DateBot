@@ -2,6 +2,7 @@ using CSharpFunctionalExtensions;
 using DateBot.Application.Abstractions.Errors;
 using DateBot.Application.Abstractions.Messaging;
 using DateBot.Application.MiniApp.Enums;
+using DateBot.Application.Notifications;
 using DateBot.Application.Parsing.Models;
 using DateBot.Application.Parsing.Services;
 using DateBot.Application.Ports.Dating;
@@ -37,6 +38,7 @@ internal sealed class ProcessAppLikeHandler(
     LikeBack likeBack,
     GenerateAndSendReply reply,
     ProfilePhotos photos,
+    IOwnerNotifier notifier,
     IOptions<ProcessingOptions> options,
     ILogger<ProcessAppLikeHandler> logger)
     : ICommandHandler<ProcessAppLikeCommand, ProcessOutcome>
@@ -45,7 +47,7 @@ internal sealed class ProcessAppLikeHandler(
         AppProfileId.Create(command.Like.ProfileId)
             .Bind(appId => FindAsync(appId, ct)
                 .Bind(existing => existing.HasValue
-                    ? ExecuteAsync(existing.GetValueOrThrow(), ct)
+                    ? ExecuteAsync(existing.GetValueOrThrow(), command.ResendWaiting, ct)
                     : AnswerNewAsync(appId, command.Like.Name, ct)));
 
     private Task<Result<Maybe<Match>, Error>> FindAsync(AppProfileId appId, CancellationToken ct) =>
@@ -65,7 +67,7 @@ internal sealed class ProcessAppLikeHandler(
                         : CreateAsync(loaded.GetValueOrThrow(), ct)
                             .Bind(match => match.IsClosed
                                 ? Ignore($"Анкета {match.Profile.Name} не прошла фильтры")
-                                : ExecuteAsync(match, ct))));
+                                : ExecuteAsync(match, resend: false, ct))));
 
     /// <summary>
     /// A profile the app no longer has or that cannot be read is skipped (None) instead of stopping the whole pass;
@@ -96,12 +98,12 @@ internal sealed class ProcessAppLikeHandler(
                 .Map(() => match))
             .Bind(match => matches.AddAsync(match, ct)
                 .Bind(() => unitOfWork.CommitAsync(ct))
-                .Tap(() => match.IsClosed ? Task.CompletedTask : photos.GetAsync(match, ct))
+                .Tap(() => match.IsClosed ? Task.CompletedTask : photos.GetAllAsync(match, ct))
                 .Map(() => match));
 
-    private Task<Result<ProcessOutcome, Error>> ExecuteAsync(Match match, CancellationToken ct) =>
+    private Task<Result<ProcessOutcome, Error>> ExecuteAsync(Match match, bool resend, CancellationToken ct) =>
         AwaitsOwner(match)
-            ? ProposeAsync(match, ct)
+            ? ProposeAsync(match, resend, ct)
             : ScenarioPlanner.Plan(MatchKind.LikedMe, Maybe.None, match) switch
             {
                 ExecutePlan plan => RunStepsAsync(match, plan, ct),
@@ -114,13 +116,46 @@ internal sealed class ProcessAppLikeHandler(
     private bool AwaitsOwner(Match match) =>
         options.Value.MiniApp.LikeBack == LikeBackMode.Confirm && match.CanLikeBack && match.PendingAction.HasNoValue;
 
-    /// <summary>The card goes out once (the photo is stored by then); later passes only count it as waiting.</summary>
-    private Task<Result<ProcessOutcome, Error>> ProposeAsync(Match match, CancellationToken ct) =>
-        match.LikeBackProposal.HasValue
-            ? Task.FromResult(Result.Success<ProcessOutcome, Error>(ProcessOutcome.LikeBackAwaiting))
-            : match.ProposeLikeBack(clock.UtcNow)
+    /// <summary>
+    /// The card goes out once (the photos are stored by then); later passes only count it as waiting, and /likes
+    /// (<paramref name="resend"/>) sends it again.
+    /// </summary>
+    private Task<Result<ProcessOutcome, Error>> ProposeAsync(Match match, bool resend, CancellationToken ct) =>
+        match.LikeBackProposal.HasNoValue
+            ? match.ProposeLikeBack(clock.UtcNow)
                 .Bind(() => unitOfWork.CommitAsync(ct))
-                .Map(() => ProcessOutcome.LikeBackProposed);
+                .Map(() => ProcessOutcome.LikeBackProposed)
+            : (resend ? ResendAsync(match, ct) : Task.FromResult(UnitResult.Success<Error>()))
+                .Map(() => ProcessOutcome.LikeBackAwaiting);
+
+    /// <summary>
+    /// A waiting card again, with its album. A card from before albums has only its main photo stored, so the app
+    /// profile is read once more for the others; when it cannot be, the card goes with what there is.
+    /// </summary>
+    private async Task<UnitResult<Error>> ResendAsync(Match match, CancellationToken ct)
+    {
+        if (match.Profile.ExtraPhotos.IsEmpty && match.Profile.AppId.TryGetValue(out var appId))
+        {
+            var loaded = await LoadAsync(appId, match.Profile.Name.Value, ct);
+            if (loaded.IsFailure)
+            {
+                return loaded.Error;
+            }
+
+            if (loaded.Value.TryGetValue(out var mapped))
+            {
+                var saved = await match.Enrich(mapped.Profile).Bind(() => unitOfWork.CommitAsync(ct));
+                if (saved.IsFailure)
+                {
+                    return saved;
+                }
+            }
+        }
+
+        await photos.GetAllAsync(match, ct);
+        await notifier.NotifyAsync(new LikeBackProposedNotification(match.Id, match.Profile), ct);
+        return UnitResult.Success<Error>();
+    }
 
     private async Task<Result<ProcessOutcome, Error>> RunStepsAsync(Match match, ExecutePlan plan, CancellationToken ct)
     {

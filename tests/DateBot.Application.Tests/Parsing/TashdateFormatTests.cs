@@ -79,7 +79,7 @@ public sealed class TashdateFormatTests
         outcome.Value.Should().Be(ProcessOutcome.Done);
         host.Client.Presses.Should().BeEmpty("a match needs no like back");
         host.Client.SentToUsers.Should().ContainSingle().Which.Username.Should().Be("anya_sample");
-        host.Generator.Calls.Single().Photo.HasValue.Should().BeTrue();
+        host.Generator.Calls.Single().Photos.Should().NotBeEmpty();
         host.Generator.Calls.Single().Prompt.User.Should().Contain("Имя: Аня");
         host.Notifier.Sent.OfType<MutualHandledNotification>().Should().ContainSingle();
     }

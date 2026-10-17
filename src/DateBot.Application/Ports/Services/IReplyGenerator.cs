@@ -8,5 +8,6 @@ namespace DateBot.Application.Ports.Services;
 /// <summary>LLM that writes the first message.</summary>
 public interface IReplyGenerator
 {
-    Task<Result<string, Error>> GenerateAsync(ReplyPrompt prompt, Maybe<ProfilePhoto> photo, CancellationToken ct);
+    /// <param name="photos">The profile photos, main first; empty when the model gets none.</param>
+    Task<Result<string, Error>> GenerateAsync(ReplyPrompt prompt, IReadOnlyList<ProfilePhoto> photos, CancellationToken ct);
 }

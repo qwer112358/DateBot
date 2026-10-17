@@ -90,8 +90,8 @@ internal sealed class TestHost : IAsyncDisposable
     public Task<Result<DraftDecision, Error>> DecideAsync(Guid matchId, bool approve, MessageChannel? channel = null) =>
         Dispatcher.SendAsync<SendReplyCommand, DraftDecision>(new SendReplyCommand(matchId, approve, channel), CancellationToken.None);
 
-    public Task<Result<AppSyncReport, Error>> SyncAppAsync() =>
-        Dispatcher.SendAsync<SyncAppLikesCommand, AppSyncReport>(new SyncAppLikesCommand(), CancellationToken.None);
+    public Task<Result<AppSyncReport, Error>> SyncAppAsync(bool resendWaiting = false) =>
+        Dispatcher.SendAsync<SyncAppLikesCommand, AppSyncReport>(new SyncAppLikesCommand(resendWaiting), CancellationToken.None);
 
     public Task<Result<Unit, Error>> OwnerAsync(OwnerRequest request) =>
         Dispatcher.SendAsync<HandleOwnerRequestCommand, Unit>(new HandleOwnerRequestCommand(request), CancellationToken.None);

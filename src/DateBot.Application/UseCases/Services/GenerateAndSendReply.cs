@@ -73,7 +73,7 @@ public sealed class GenerateAndSendReply(
 
         // A match no channel reaches (no @username, not found in the app) still gets its text: as a draft you send by hand.
         return await LoadPhotoAsync(match, ct)
-            .Bind(photo => composer.ComposeAsync(match.Profile, photo, ct))
+            .Bind(photos => composer.ComposeAsync(match.Profile, photos, ct))
             .Bind(composed => ShouldDraft(composed) || channels.IsEmpty
                 ? DraftAsync(match, composed.Text, anchor, ct)
                 : MessageRouter.Choose(match, anchor, processing.Value).Bind(route => SendAsync(match, composed.Text, route, ct)));
@@ -170,12 +170,12 @@ public sealed class GenerateAndSendReply(
     }
 
     /// <summary>
-    /// The photo is always fetched and kept, because the owner's notifications show it; the LLM gets it only when
-    /// <see cref="ReplyOptions.UsePhoto"/> allows.
+    /// The photos are always fetched and kept, because the owner's notifications show them; the LLM gets them all only
+    /// when <see cref="ReplyOptions.UsePhoto"/> allows.
     /// </summary>
-    private async Task<Result<Maybe<ProfilePhoto>, Error>> LoadPhotoAsync(Match match, CancellationToken ct)
+    private async Task<Result<IReadOnlyList<ProfilePhoto>, Error>> LoadPhotoAsync(Match match, CancellationToken ct)
     {
-        var photo = await photos.GetAsync(match, ct);
-        return replies.Value.UsePhoto ? photo : Maybe<ProfilePhoto>.None;
+        var all = await photos.GetAllAsync(match, ct);
+        return Result.Success<IReadOnlyList<ProfilePhoto>, Error>(replies.Value.UsePhoto ? all : []);
     }
 }

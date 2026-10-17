@@ -138,7 +138,7 @@ internal sealed class ProcessBotMessageHandler(
                 .Bind(id => Match.Create(new MatchInput(id, mapped.PersonId, context.Id, kind, mapped.Profile, clock.UtcNow)))
                 .Bind(match => matches.AddAsync(match, ct)
                     .Bind(() => unitOfWork.CommitAsync(ct))
-                    .Tap(() => photos.GetAsync(match, ct))
+                    .Tap(() => photos.GetAllAsync(match, ct))
                     .Map(() => match));
 
     /// <summary>A later notification about a known person: a mutual one confirms the match and may reveal the username.</summary>

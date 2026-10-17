@@ -23,19 +23,19 @@ public sealed class ReplyComposer(
 {
     private static readonly GeneratedReplyValidator Validator = new();
 
-    public async Task<Result<ComposedReply, Error>> ComposeAsync(Profile profile, Maybe<ProfilePhoto> photo, CancellationToken ct)
+    public async Task<Result<ComposedReply, Error>> ComposeAsync(Profile profile, IReadOnlyList<ProfilePhoto> photos, CancellationToken ct)
     {
         var settings = options.Value;
         var language = ProfileLanguage(profile).GetValueOrDefault(settings.DefaultLanguage);
 
-        if (!profile.HasDetails && photo.HasNoValue)
+        if (!profile.HasDetails && photos.Count == 0)
         {
             return Template(profile, language, "анкета пустая");
         }
 
         var generated = await templates.LoadAsync(ct)
-            .Map(loaded => PromptBuilder.Build(loaded, profile, settings.Owner, language, photo.HasValue, settings.MaxLength))
-            .Bind(prompt => generator.GenerateAsync(prompt, photo, ct));
+            .Map(loaded => PromptBuilder.Build(loaded, profile, settings.Owner, language, photos.Count > 0, settings.MaxLength))
+            .Bind(prompt => generator.GenerateAsync(prompt, photos, ct));
 
         return generated
             .Map(Clean)
@@ -50,13 +50,13 @@ public sealed class ReplyComposer(
     /// instead of falling back to a template, and the language check follows the text: the hint may ask for another language.
     /// </summary>
     public Task<Result<ReplyText, Error>> ReviseAsync(
-        Profile profile, Maybe<ProfilePhoto> photo, ReplyText draft, string hint, CancellationToken ct)
+        Profile profile, IReadOnlyList<ProfilePhoto> photos, ReplyText draft, string hint, CancellationToken ct)
     {
         var settings = options.Value;
         var language = ProfileLanguage(profile).GetValueOrDefault(settings.DefaultLanguage);
         return templates.LoadAsync(ct)
-            .Map(loaded => PromptBuilder.BuildRevision(loaded, profile, settings.Owner, language, photo.HasValue, settings.MaxLength, draft, hint))
-            .Bind(prompt => generator.GenerateAsync(prompt, photo, ct))
+            .Map(loaded => PromptBuilder.BuildRevision(loaded, profile, settings.Owner, language, photos.Count > 0, settings.MaxLength, draft, hint))
+            .Bind(prompt => generator.GenerateAsync(prompt, photos, ct))
             .Map(Clean)
             .Bind(text => Check(text, LanguageDetector.Detect(text).GetValueOrDefault(language), settings))
             .TapError(error => logger.LogWarning("Rewrite for {Name} rejected: {Error}", profile.Name, error));

@@ -17,7 +17,7 @@ public sealed class ReplyOptions
 
     public int MaxEmoji { get; init; } = 1;
 
-    /// <summary>Send the profile photo to the model so the message can mention a neutral detail of it.</summary>
+    /// <summary>Send the profile photos to the model so the message can build on what they show.</summary>
     public bool UsePhoto { get; init; } = true;
 
     public InvalidReplyPolicy InvalidReplyPolicy { get; init; } = InvalidReplyPolicy.Template;

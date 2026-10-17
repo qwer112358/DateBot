@@ -27,8 +27,12 @@ internal sealed class InMemoryRepositories(InMemoryStore store)
     public Task<UnitResult<Error>> RemoveAsync(Match match, CancellationToken ct)
     {
         store.Matches.Remove(match.Id.Value);
+        store.Forgotten.Add(match.PersonId.Value);
         return Done();
     }
+
+    public Task<Result<bool, Error>> IsForgottenAsync(TashdateUserId personId, CancellationToken ct) =>
+        Ok(store.Forgotten.Contains(personId.Value));
 
     public Task<Result<IReadOnlyDictionary<MatchStatus, int>, Error>> CountByStatusAsync(CancellationToken ct) =>
         Ok<IReadOnlyDictionary<MatchStatus, int>>(store.Matches.Values.GroupBy(m => m.Status).ToDictionary(g => g.Key, g => g.Count()));
@@ -56,7 +60,8 @@ internal sealed class InMemoryRepositories(InMemoryStore store)
 
     public Task<Result<int, Error>> PurgeSentBeforeAsync(DateTimeOffset before, CancellationToken ct) => Ok(0);
 
-    Task<Result<SyncCursor, Error>> ISyncCursorRepository.GetAsync(CancellationToken ct) => Ok(store.Cursor);
+    Task<Result<SyncCursor, Error>> ISyncCursorRepository.GetAsync(CancellationToken ct) =>
+        Ok(SyncCursor.Restore(store.Cursor.LastProcessed, store.Cursor.LastProcessedAt));
 
     public Task<UnitResult<Error>> SaveAsync(SyncCursor cursor, CancellationToken ct)
     {

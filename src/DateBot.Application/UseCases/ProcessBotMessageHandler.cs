@@ -82,8 +82,18 @@ internal sealed class ProcessBotMessageHandler(
                 IgnoreAsync(context, $"Анкета {mapped.Profile.Name} не прошла фильтры", ct),
             { Value: var mapped } => matches
                 .FindByPersonAsync(mapped.PersonId, ct)
-                .Bind(existing => ExecuteAsync(context, kind, mapped, existing, ct)),
+                .Bind(existing => existing.HasValue
+                    ? ExecuteAsync(context, kind, mapped, existing, ct)
+                    : ExecuteUnlessForgottenAsync(context, kind, mapped, ct)),
         };
+
+    /// <summary>A person whose data was deleted ("Forget" or retention) was already answered once: never again.</summary>
+    private Task<Result<ProcessOutcome, Error>> ExecuteUnlessForgottenAsync(
+        MessageContext context, MatchKind kind, MappedProfile mapped, CancellationToken ct) =>
+        matches.IsForgottenAsync(mapped.PersonId, ct)
+            .Bind(forgotten => forgotten
+                ? IgnoreAsync(context, $"Данные о {mapped.Profile.Name} были удалены, повторно не отвечаем", ct)
+                : ExecuteAsync(context, kind, mapped, Maybe<Match>.None, ct));
 
     private Task<Result<ProcessOutcome, Error>> ExecuteAsync(
         MessageContext context, MatchKind kind, MappedProfile mapped, Maybe<Match> existing, CancellationToken ct) =>

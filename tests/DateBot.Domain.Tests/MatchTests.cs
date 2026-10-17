@@ -71,7 +71,7 @@ public sealed class MatchTests
         match.StartMessage(Reply(), Now).Bind(() => match.CompleteMessage(Now));
 
         match.StartMessage(Reply("Ещё одно сообщение"), Now).Error.Should().Be(MatchErrors.AlreadyMessaged);
-        match.DraftReply(Reply("Черновик"), Now).Error.Should().Be(MatchErrors.AlreadyMessaged);
+        match.DraftReply(Reply("Черновик"), Anchor, Now).Error.Should().Be(MatchErrors.AlreadyMessaged);
     }
 
     [Fact]
@@ -124,7 +124,8 @@ public sealed class MatchTests
     public void Draft_can_be_sent_and_returns_to_draft_when_send_is_aborted()
     {
         var match = NewMatch(MatchKind.Mutual);
-        match.DraftReply(Reply(), Now).IsSuccess.Should().BeTrue();
+        match.DraftReply(Reply(), Anchor, Now).IsSuccess.Should().BeTrue();
+        match.DraftMessage.GetValueOrThrow().Anchor.Should().Be(Maybe.From(Anchor));
         match.DomainEvents.OfType<ReplyDrafted>().Should().ContainSingle();
 
         match.StartMessage(Reply(), Now).IsSuccess.Should().BeTrue();
@@ -139,7 +140,7 @@ public sealed class MatchTests
     public void Skipping_a_draft_closes_the_match()
     {
         var match = NewMatch(MatchKind.Mutual);
-        match.DraftReply(Reply(), Now);
+        match.DraftReply(Reply(), Anchor, Now);
 
         match.SkipReply(Now).IsSuccess.Should().BeTrue();
 

@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DateBot.Domain.Shared;
 
 namespace DateBot.Domain.Matches;
 
@@ -14,6 +15,7 @@ public sealed class MatchAction
         FailureReason = state.FailureReason;
         CreatedAt = state.CreatedAt;
         UpdatedAt = state.UpdatedAt;
+        Anchor = state.Anchor;
     }
 
     public int Sequence { get; }
@@ -30,11 +32,15 @@ public sealed class MatchAction
 
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    /// <summary>For a draft: the bot notification it answers; approval sends the message against it.</summary>
+    public Maybe<BotMessageId> Anchor { get; }
+
     /// <summary>In-memory only: the pending send came from a draft approved by the owner.</summary>
     private bool PromotedFromDraft { get; set; }
 
-    internal static MatchAction Start(int sequence, ActionType type, ActionStatus status, Maybe<ReplyText> text, DateTimeOffset now) =>
-        new(new MatchActionState(sequence, type, status, text, Maybe<string>.None, now, now));
+    internal static MatchAction Start(
+        int sequence, ActionType type, ActionStatus status, Maybe<ReplyText> text, DateTimeOffset now, Maybe<BotMessageId> anchor = default) =>
+        new(new MatchActionState(sequence, type, status, text, Maybe<string>.None, now, now, anchor));
 
     internal static MatchAction Restore(MatchActionState state) => new(state);
 

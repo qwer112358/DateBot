@@ -22,4 +22,7 @@ public sealed class ActionRecord
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>For a draft: the bot notification it answers.</summary>
+    public long? AnchorMessageId { get; set; }
 }

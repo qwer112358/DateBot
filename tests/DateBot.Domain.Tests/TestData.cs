@@ -8,6 +8,8 @@ internal static class TestData
 {
     public static readonly DateTimeOffset Now = new(2026, 10, 17, 12, 0, 0, TimeSpan.Zero);
 
+    public static readonly BotMessageId Anchor = BotMessageId.Create(105).Value;
+
     public static Profile Profile(string name = "Анна", bool withUsername = false) =>
         Matches.Profile.Create(new ProfileInput(
             ProfileName.Create(name).Value,

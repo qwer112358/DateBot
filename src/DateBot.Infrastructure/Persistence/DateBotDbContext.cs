@@ -13,6 +13,8 @@ public sealed class DateBotDbContext(DbContextOptions<DateBotDbContext> options)
 
     public DbSet<SyncStateRecord> SyncState => Set<SyncStateRecord>();
 
+    public DbSet<ForgottenPersonRecord> ForgottenPeople => Set<ForgottenPersonRecord>();
+
     /// <summary>SQLite cannot compare DateTimeOffset stored as text; binary ticks keep range queries in SQL.</summary>
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) =>
         configurationBuilder.Properties<DateTimeOffset>().HaveConversion<DateTimeOffsetToBinaryConverter>();
@@ -60,6 +62,13 @@ public sealed class DateBotDbContext(DbContextOptions<DateBotDbContext> options)
             e.ToTable("SyncState");
             e.HasKey(x => x.Key);
             e.Property(x => x.Key).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<ForgottenPersonRecord>(e =>
+        {
+            e.ToTable("ForgottenPeople");
+            e.HasKey(x => x.PersonId);
+            e.Property(x => x.PersonId).HasMaxLength(128);
         });
     }
 }

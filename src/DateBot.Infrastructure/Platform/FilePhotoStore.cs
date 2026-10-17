@@ -24,7 +24,7 @@ internal sealed class FilePhotoStore(IOptions<StorageOptions> options) : IPhotoS
             var bytes = await File.ReadAllBytesAsync(path, ct);
             return Maybe.From(new ProfilePhoto(bytes, DetectMediaType(bytes)));
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return Result.Failure<Maybe<ProfilePhoto>, Error>(ServiceErrors.Storage(ex.Message));
         }

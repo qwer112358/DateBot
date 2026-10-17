@@ -216,6 +216,77 @@ public sealed class PersistenceTests : IAsyncLifetime
         });
     }
 
+    [Fact]
+    public async Task Cursor_is_read_fresh_even_after_this_scope_saved_it()
+    {
+        await using var catchUp = _services.CreateAsyncScope();
+        var cursors = catchUp.ServiceProvider.GetRequiredService<ISyncCursorRepository>();
+        var start = (await cursors.GetAsync(default)).Value;
+        start.Advance(MessageId(50), Now);
+        await cursors.SaveAsync(start, default);
+        await catchUp.ServiceProvider.GetRequiredService<IUnitOfWork>().CommitAsync(default);
+
+        await InScopeAsync(async sp =>
+        {
+            var repository = sp.GetRequiredService<ISyncCursorRepository>();
+            var cursor = (await repository.GetAsync(default)).Value;
+            cursor.Advance(MessageId(61), Now);
+            await repository.SaveAsync(cursor, default);
+            await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default);
+        });
+
+        (await cursors.GetAsync(default)).Value.Position.Should().Be(61);
+    }
+
+    [Fact]
+    public async Task Forgetting_and_retention_leave_only_tombstones()
+    {
+        var forgotten = NewMatch(MatchKind.LikedMe, "fp:forget", 1);
+        var expired = NewMatch(MatchKind.Mutual, "fp:expired", 2);
+        await InScopeAsync(async sp =>
+        {
+            await sp.GetRequiredService<IMatchRepository>().AddAsync(forgotten, default);
+            await sp.GetRequiredService<IMatchRepository>().AddAsync(expired, default);
+            await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default);
+        });
+
+        await InScopeAsync(async sp =>
+        {
+            var repository = sp.GetRequiredService<IMatchRepository>();
+            var loaded = (await repository.FindByIdAsync(forgotten.Id, default)).Value.GetValueOrThrow();
+            await repository.RemoveAsync(loaded, default);
+            (await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default)).IsSuccess.Should().BeTrue();
+            (await repository.PurgeReceivedBeforeAsync(Now.AddDays(1), default)).Value.Should().ContainSingle();
+        });
+
+        await InScopeAsync(async sp =>
+        {
+            var repository = sp.GetRequiredService<IMatchRepository>();
+            (await repository.IsForgottenAsync(forgotten.PersonId, default)).Value.Should().BeTrue();
+            (await repository.IsForgottenAsync(expired.PersonId, default)).Value.Should().BeTrue();
+            (await repository.IsForgottenAsync(TashdateUserId.Create("fp:someone-else").Value, default)).Value.Should().BeFalse();
+            (await sp.GetRequiredService<DateBotDbContext>().Matches.CountAsync()).Should().Be(0);
+        });
+    }
+
+    [Fact]
+    public async Task Draft_keeps_its_anchor_through_the_database()
+    {
+        var match = NewMatch(MatchKind.LikedMe);
+        match.StartLikeBack(Now).Bind(() => match.CompleteLikeBack(Now)).Bind(() => match.DraftReply(Reply, MessageId(105), Now));
+        await InScopeAsync(async sp =>
+        {
+            await sp.GetRequiredService<IMatchRepository>().AddAsync(match, default);
+            await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default);
+        });
+
+        await InScopeAsync(async sp =>
+        {
+            var loaded = (await sp.GetRequiredService<IMatchRepository>().FindByIdAsync(match.Id, default)).Value.GetValueOrThrow();
+            loaded.DraftMessage.GetValueOrThrow().Anchor.Should().Be(Maybe.From(MessageId(105)));
+        });
+    }
+
     private static readonly DateTimeOffset Now = new(2026, 10, 17, 12, 0, 0, TimeSpan.Zero);
 
     private static readonly ReplyText Reply = ReplyText.Create("Привет! Вижу, ты тоже любишь горы.").Value;

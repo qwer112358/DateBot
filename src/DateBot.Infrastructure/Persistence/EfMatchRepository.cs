@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DateBot.Infrastructure.Persistence;
 
-internal sealed class EfMatchRepository(DateBotDbContext db, ChangeSet changes) : IMatchRepository
+internal sealed class EfMatchRepository(DateBotDbContext db, ChangeSet changes, IClock clock) : IMatchRepository
 {
     public Task<Result<Maybe<Match>, Error>> FindByIdAsync(MatchId id, CancellationToken ct) =>
         changes.FindMatch(id.Value) is { } tracked
@@ -30,6 +30,9 @@ internal sealed class EfMatchRepository(DateBotDbContext db, ChangeSet changes) 
         return Task.FromResult(UnitResult.Success<Error>());
     }
 
+    public Task<Result<bool, Error>> IsForgottenAsync(TashdateUserId personId, CancellationToken ct) =>
+        Db.TryAsync(() => db.ForgottenPeople.AsNoTracking().AnyAsync(f => f.PersonId == personId.Value, ct));
+
     public Task<Result<IReadOnlyDictionary<MatchStatus, int>, Error>> CountByStatusAsync(CancellationToken ct) =>
         Db.TryAsync(async () => (IReadOnlyDictionary<MatchStatus, int>)await db.Matches
             .AsNoTracking()
@@ -40,10 +43,22 @@ internal sealed class EfMatchRepository(DateBotDbContext db, ChangeSet changes) 
     public Task<Result<IReadOnlyList<PhotoFileId>, Error>> PurgeReceivedBeforeAsync(DateTimeOffset before, CancellationToken ct) =>
         Db.TryAsync(async () =>
         {
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
             var expired = db.Matches.Where(m => m.ReceivedAt < before);
-            var photos = await expired.Where(m => m.PhotoFileId != null).Select(m => m.PhotoFileId!).ToListAsync(ct);
+            var people = await expired.Select(m => new { m.PersonId, m.PhotoFileId }).ToListAsync(ct);
+            var known = await db.ForgottenPeople.Select(f => f.PersonId).ToListAsync(ct);
+            db.ForgottenPeople.AddRange(people
+                .Select(p => p.PersonId)
+                .Except(known)
+                .Select(id => new ForgottenPersonRecord { PersonId = id, ForgottenAt = clock.UtcNow }));
+            await db.SaveChangesAsync(ct);
             await expired.ExecuteDeleteAsync(ct);
-            return (IReadOnlyList<PhotoFileId>)[.. photos.Select(PhotoFileId.Create).Where(p => p.IsSuccess).Select(p => p.Value)];
+            await transaction.CommitAsync(ct);
+            return (IReadOnlyList<PhotoFileId>)[.. people
+                .Where(p => p.PhotoFileId != null)
+                .Select(p => PhotoFileId.Create(p.PhotoFileId!))
+                .Where(p => p.IsSuccess)
+                .Select(p => p.Value)];
         });
 
     private Task<Result<Maybe<Match>, Error>> LoadAsync(IQueryable<MatchRecord> query, CancellationToken ct) =>

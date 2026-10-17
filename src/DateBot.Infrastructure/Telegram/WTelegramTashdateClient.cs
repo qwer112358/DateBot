@@ -138,12 +138,20 @@ internal sealed class WTelegramTashdateClient : ITashdateClient, IAsyncDisposabl
             };
         });
 
+    public Task<UnitResult<Error>> EnsureLatestAsync(BotMessageId messageId, CancellationToken ct) =>
+        GuardUnit(async () =>
+        {
+            var (client, bot) = await EnsureConnectedAsync(ct);
+            return await LatestIncomingIdAsync(client, bot) == messageId.Value
+                ? UnitResult.Success<Error>()
+                : UnitResult.Failure(TelegramErrors.StaleAnchor(messageId));
+        });
+
     public Task<UnitResult<Error>> SendToBotAsync(ReplyText text, CancellationToken ct) =>
         GuardUnit(async () =>
         {
             var (client, bot) = await EnsureConnectedAsync(ct);
-            await client.SendMessageAsync(bot, text.Value);
-            return UnitResult.Success<Error>();
+            return await SendOnceAsync(client, bot, text.Value);
         });
 
     public Task<UnitResult<Error>> SendToUserAsync(ContactUsername username, ReplyText text, CancellationToken ct) =>
@@ -165,8 +173,7 @@ internal sealed class WTelegramTashdateClient : ITashdateClient, IAsyncDisposabl
                 return UnitResult.Failure(TelegramErrors.UserNotFound(username));
             }
 
-            await client.SendMessageAsync(user, text.Value);
-            return UnitResult.Success<Error>();
+            return await SendOnceAsync(client, user, text.Value);
         });
 
     public Task<Result<Maybe<ProfilePhoto>, Error>> DownloadPhotoAsync(BotMessageId messageId, CancellationToken ct) =>
@@ -280,10 +287,9 @@ internal sealed class WTelegramTashdateClient : ITashdateClient, IAsyncDisposabl
     private async Task<UnitResult<Error>> PressInlineAsync(
         Client client, User bot, Message message, ReplyInlineMarkup inline, ImmutableArray<string> labels)
     {
-        var button = inline.rows
-            .SelectMany(row => row.buttons)
-            .FirstOrDefault(b => b.type is InlineButtonTypeCallback && Matches(b.text, labels));
-        if (button?.type is not InlineButtonTypeCallback callback)
+        var button = ButtonLabels.Pick(
+            inline.rows.SelectMany(row => row.buttons).Where(b => b.type is InlineButtonTypeCallback), b => b.text, labels);
+        if (button.HasNoValue || button.GetValueOrThrow().type is not InlineButtonTypeCallback callback)
         {
             return UnitResult.Failure(TelegramErrors.ButtonNotFound(BotMessageId.Create(message.id).Value, labels));
         }
@@ -307,9 +313,7 @@ internal sealed class WTelegramTashdateClient : ITashdateClient, IAsyncDisposabl
     /// </summary>
     private async Task<UnitResult<Error>> PressKeyboardAsync(Client client, User bot, Message message, string label)
     {
-        var latest = await client.Messages_GetHistory(bot, limit: 10);
-        var latestIncoming = (latest.Messages ?? []).OfType<Message>().FirstOrDefault(m => !m.flags.HasFlag(Message.Flags.out_));
-        if (latestIncoming?.id != message.id)
+        if (await LatestIncomingIdAsync(client, bot) != message.id)
         {
             return UnitResult.Failure(Error.Conflict(
                 "telegram.stale_keyboard",
@@ -320,11 +324,34 @@ internal sealed class WTelegramTashdateClient : ITashdateClient, IAsyncDisposabl
         return UnitResult.Success<Error>();
     }
 
-    private static Maybe<string> KeyboardLabel(ReplyKeyboardMarkup keyboard, ImmutableArray<string> labels) =>
-        keyboard.rows.SelectMany(row => row.buttons).Select(b => b.text).TryFirst(text => Matches(text, labels));
+    private static async Task<long> LatestIncomingIdAsync(Client client, User bot)
+    {
+        var latest = await client.Messages_GetHistory(bot, limit: 10);
+        return (latest.Messages ?? []).OfType<Message>().TryFirst(m => !m.flags.HasFlag(Message.Flags.out_)).Map(m => (long)m.id).GetValueOrDefault(0);
+    }
 
-    private static bool Matches(string text, ImmutableArray<string> labels) =>
-        labels.Any(label => text.Contains(label, StringComparison.OrdinalIgnoreCase));
+    /// <summary>
+    /// Sends one text. Telegram errors (FLOOD_WAIT, privacy, ...) are refusals and propagate as such; a transport
+    /// failure after the request was handed over may hide a delivered message, so it is reported as an unknown outcome.
+    /// </summary>
+    private async Task<UnitResult<Error>> SendOnceAsync(Client client, InputPeer peer, string text)
+    {
+        try
+        {
+            await client.SendMessageAsync(peer, text);
+            return UnitResult.Success<Error>();
+        }
+        catch (Exception ex) when (ex is IOException or SocketException or TimeoutException or ObjectDisposedException
+            || (ex is WTException && ex is not RpcException))
+        {
+            _broken = true;
+            _logger.LogWarning(ex, "Connection broke while sending a message; it may have been delivered");
+            return UnitResult.Failure(TelegramErrors.SendOutcomeUnknown(ex.Message));
+        }
+    }
+
+    private static Maybe<string> KeyboardLabel(ReplyKeyboardMarkup keyboard, ImmutableArray<string> labels) =>
+        ButtonLabels.Pick(keyboard.rows.SelectMany(row => row.buttons), b => b.text, labels).Map(b => b.text);
 
     private static async Task<Maybe<Message>> FindMessageAsync(Client client, BotMessageId id)
     {

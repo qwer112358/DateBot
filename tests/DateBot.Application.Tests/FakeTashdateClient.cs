@@ -22,6 +22,9 @@ internal sealed class FakeTashdateClient : ITashdateClient
 
     public Queue<Error> SendFailures { get; } = new();
 
+    /// <summary>Newest bot message id as the chat shows it; None = the anchor is always the latest.</summary>
+    public Maybe<long> LatestMessageId { get; set; } = Maybe<long>.None;
+
     public Maybe<ProfilePhoto> Photo { get; set; } = Maybe<ProfilePhoto>.None;
 
     public int Downloads { get; private set; }
@@ -50,6 +53,11 @@ internal sealed class FakeTashdateClient : ITashdateClient
         Presses.Add((messageId.Value, labels));
         return Task.FromResult(UnitResult.Success<Error>());
     }
+
+    public Task<UnitResult<Error>> EnsureLatestAsync(BotMessageId messageId, CancellationToken ct) =>
+        Task.FromResult(LatestMessageId.HasNoValue || LatestMessageId.GetValueOrThrow() == messageId.Value
+            ? UnitResult.Success<Error>()
+            : UnitResult.Failure(TelegramErrors.StaleAnchor(messageId)));
 
     public Task<UnitResult<Error>> SendToBotAsync(ReplyText text, CancellationToken ct)
     {

@@ -10,18 +10,18 @@ namespace DateBot.Infrastructure.Persistence;
 /// Writes every aggregate of the scope with one <c>SaveChanges</c> (one SQLite transaction),
 /// then publishes the collected domain events.
 /// </summary>
-internal sealed class EfUnitOfWork(DateBotDbContext db, ChangeSet changes, IDomainEventDispatcher events) : IUnitOfWork
+internal sealed class EfUnitOfWork(DateBotDbContext db, ChangeSet changes, IDomainEventDispatcher events, IClock clock) : IUnitOfWork
 {
     public async Task<UnitResult<Error>> CommitAsync(CancellationToken ct)
     {
         var saved = await Db.TryAsync(async () =>
         {
-            WriteMatches();
+            await WriteMatchesAsync(ct);
             WriteInbox();
             await RemoveInboxAsync(ct);
             await WriteSyncStateAsync(ct);
             await db.SaveChangesAsync(ct);
-            changes.ClearRemovals();
+            changes.MarkCommitted();
         });
 
         return await saved.Bind(async () =>
@@ -32,7 +32,7 @@ internal sealed class EfUnitOfWork(DateBotDbContext db, ChangeSet changes, IDoma
         });
     }
 
-    private void WriteMatches()
+    private async Task WriteMatchesAsync(CancellationToken ct)
     {
         foreach (var entry in changes.Matches)
         {
@@ -44,6 +44,14 @@ internal sealed class EfUnitOfWork(DateBotDbContext db, ChangeSet changes, IDoma
             else
             {
                 RecordMapper.Apply(entry.Match, entry.Record);
+            }
+        }
+
+        foreach (var removed in changes.RemovedMatches)
+        {
+            if (await db.ForgottenPeople.FindAsync([removed.PersonId], ct) is null)
+            {
+                db.ForgottenPeople.Add(new ForgottenPersonRecord { PersonId = removed.PersonId, ForgottenAt = clock.UtcNow });
             }
         }
 

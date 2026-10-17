@@ -10,13 +10,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DateBot.Infrastructure.Persistence;
 
-/// <summary>Cursor and control flags live in the key/value table <c>SyncState</c>; reads never use tracking.</summary>
+/// <summary>
+/// Cursor and control flags live in the key/value table <c>SyncState</c>. Reads always go to the database: other
+/// scopes (each processed message, the notifier bot) move the cursor and flip /stop while this scope is alive.
+/// </summary>
 internal sealed class EfSyncStateStore(DateBotDbContext db, ChangeSet changes) : ISyncCursorRepository, IControlStateStore
 {
     Task<Result<SyncCursor, Error>> ISyncCursorRepository.GetAsync(CancellationToken ct) =>
-        changes.Cursor is { } tracked
-            ? Task.FromResult(Result.Success<SyncCursor, Error>(tracked))
-            : Db.TryAsync(async () =>
+        Db.TryAsync(async () =>
             {
                 var values = await ReadAsync(ct);
                 return ParseLong(values, SyncStateKeys.LastBotMessageId)
@@ -33,9 +34,7 @@ internal sealed class EfSyncStateStore(DateBotDbContext db, ChangeSet changes) :
     }
 
     Task<Result<ControlState, Error>> IControlStateStore.GetAsync(CancellationToken ct) =>
-        changes.Control is { } tracked
-            ? Task.FromResult(Result.Success<ControlState, Error>(tracked))
-            : Db.TryAsync(async () =>
+        Db.TryAsync(async () =>
             {
                 var values = await ReadAsync(ct);
                 return ParseLong(values, SyncStateKeys.OwnerUserId)

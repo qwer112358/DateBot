@@ -22,11 +22,22 @@ public interface ITashdateClient
     /// <summary>Completes when the bot writes something new or when <paramref name="timeout"/> passes.</summary>
     Task<UnitResult<Error>> WaitForActivityAsync(TimeSpan timeout, CancellationToken ct);
 
-    /// <summary>Presses the first inline button of the message whose text contains one of <paramref name="labels"/>.</summary>
+    /// <summary>
+    /// Presses a button of the message: labels are tried in order, each matched as a whole word
+    /// (so "Лайк" never presses "Дизлайк").
+    /// </summary>
     Task<UnitResult<Error>> PressButtonAsync(BotMessageId messageId, ImmutableArray<string> labels, CancellationToken ct);
 
+    /// <summary>Fails with <see cref="TelegramErrors.StaleAnchor"/> when the bot has written anything after this message.</summary>
+    Task<UnitResult<Error>> EnsureLatestAsync(BotMessageId messageId, CancellationToken ct);
+
+    /// <summary>
+    /// <see cref="TelegramErrors.Unavailable"/> means nothing was sent;
+    /// <see cref="TelegramErrors.SendOutcomeUnknown"/> means the text may have been delivered.
+    /// </summary>
     Task<UnitResult<Error>> SendToBotAsync(ReplyText text, CancellationToken ct);
 
+    /// <inheritdoc cref="SendToBotAsync"/>
     Task<UnitResult<Error>> SendToUserAsync(ContactUsername username, ReplyText text, CancellationToken ct);
 
     /// <summary>The largest size of the photo attached to the bot message, if any.</summary>

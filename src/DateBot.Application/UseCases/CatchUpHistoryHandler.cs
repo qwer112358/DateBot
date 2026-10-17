@@ -25,7 +25,7 @@ internal sealed class CatchUpHistoryHandler(
     : ICommandHandler<CatchUpHistoryCommand, CatchUpReport>
 {
     public Task<Result<CatchUpReport, Error>> HandleAsync(CatchUpHistoryCommand command, CancellationToken ct) =>
-        EnsureStartPositionAsync(ct).Bind(() => CatchUpFromAsync(CatchUpReport.Empty, ct));
+        EnsureStartPositionAsync(ct).Bind(() => CatchUpFromAsync(CatchUpReport.Empty, previousPosition: -1, ct));
 
     /// <summary>
     /// The very first run has no cursor: start at "now minus FirstRunBackfill" instead of the beginning of the chat,
@@ -42,16 +42,20 @@ internal sealed class CatchUpHistoryHandler(
                         .Bind(() => cursors.SaveAsync(cursor, ct))
                         .Bind(() => unitOfWork.CommitAsync(ct))));
 
-    private Task<Result<CatchUpReport, Error>> CatchUpFromAsync(CatchUpReport report, CancellationToken ct) =>
-        NextBatchAsync(ct).Bind(batch => batch.IsEmpty
-            ? Task.FromResult(Result.Success<CatchUpReport, Error>(report))
-            : ProcessBatchAsync(batch, report, ct).Bind(updated => CatchUpFromAsync(updated, ct)));
-
-    private Task<Result<ImmutableArray<RawBotMessage>, Error>> NextBatchAsync(CancellationToken ct) =>
+    /// <summary>
+    /// Batch after batch until the chat is read. Every processed batch moves the cursor; if one did not,
+    /// stop instead of fetching the same messages again (the next run retries).
+    /// </summary>
+    private Task<Result<CatchUpReport, Error>> CatchUpFromAsync(CatchUpReport report, long previousPosition, CancellationToken ct) =>
         control.GetAsync(ct)
             .Ensure(state => !state.Paused, ServiceErrors.Paused)
             .Bind(_ => cursors.GetAsync(ct))
-            .Bind(cursor => client.GetHistoryAsync(cursor.Position, options.Value.HistoryBatchSize, ct));
+            .Bind(cursor => cursor.Position == previousPosition
+                ? Task.FromResult(Result.Success<CatchUpReport, Error>(report))
+                : client.GetHistoryAsync(cursor.Position, options.Value.HistoryBatchSize, ct)
+                    .Bind(batch => batch.IsEmpty
+                        ? Task.FromResult(Result.Success<CatchUpReport, Error>(report))
+                        : ProcessBatchAsync(batch, report, ct).Bind(updated => CatchUpFromAsync(updated, cursor.Position, ct))));
 
     private async Task<Result<CatchUpReport, Error>> ProcessBatchAsync(
         ImmutableArray<RawBotMessage> batch, CatchUpReport report, CancellationToken ct)

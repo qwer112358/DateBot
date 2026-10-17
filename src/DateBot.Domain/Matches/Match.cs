@@ -133,13 +133,13 @@ public sealed class Match : AggregateRoot<MatchId>
             }));
 
     /// <summary>Confirm mode: keep the message as a draft until the owner decides.</summary>
-    public UnitResult<Error> DraftReply(ReplyText text, DateTimeOffset now) =>
+    public UnitResult<Error> DraftReply(ReplyText text, BotMessageId anchor, DateTimeOffset now) =>
         Guard.Require(!HasActiveMessage, MatchErrors.AlreadyMessaged)
             .Bind(() => Guard.Require(CanStartMessage, MatchErrors.InvalidState(Status, "черновик сообщения")))
             .Bind(() => Guard.Require(PendingAction.HasNoValue, MatchErrors.ActionInProgress))
             .Tap(() =>
             {
-                _actions.Add(MatchAction.Start(NextSequence, ActionType.SendMessage, ActionStatus.Draft, text, now));
+                _actions.Add(MatchAction.Start(NextSequence, ActionType.SendMessage, ActionStatus.Draft, text, now, anchor));
                 Raise(new ReplyDrafted(Id, Kind, Profile, text, now));
             });
 

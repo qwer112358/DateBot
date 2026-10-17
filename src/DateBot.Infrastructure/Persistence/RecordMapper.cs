@@ -81,6 +81,7 @@ internal static class RecordMapper
             row.MessageText = action.Text.HasValue ? action.Text.GetValueOrThrow().Value : null;
             row.Error = action.FailureReason.HasValue ? action.FailureReason.GetValueOrThrow() : null;
             row.UpdatedAt = action.UpdatedAt;
+            row.AnchorMessageId = action.Anchor.HasValue ? action.Anchor.GetValueOrThrow().Value : null;
         }
     }
 
@@ -107,13 +108,17 @@ internal static class RecordMapper
     }
 
     private static Result<MatchActionState, Error> ToState(ActionRecord row) =>
-        Optional(row.MessageText, ReplyText.Create).Map<Maybe<ReplyText>, MatchActionState, Error>(text => new MatchActionState(
-            row.Sequence, row.Type, row.Status, text, Maybe.From(row.Error), row.CreatedAt, row.UpdatedAt));
+        Optional(row.MessageText, ReplyText.Create).Bind<Maybe<ReplyText>, MatchActionState, Error>(text =>
+            Optional(row.AnchorMessageId, BotMessageId.Create).Map<Maybe<BotMessageId>, MatchActionState, Error>(anchor =>
+                new MatchActionState(row.Sequence, row.Type, row.Status, text, Maybe.From(row.Error), row.CreatedAt, row.UpdatedAt, anchor)));
 
     private static Result<Maybe<TVo>, Error> Optional<TVo>(string? value, Func<string, Result<TVo, Error>> create) =>
         value is null ? Maybe<TVo>.None : create(value).Map(vo => Maybe.From(vo));
 
     private static Result<Maybe<TVo>, Error> Optional<TVo>(int? value, Func<int, Result<TVo, Error>> create) =>
+        value is null ? Maybe<TVo>.None : create(value.Value).Map(vo => Maybe.From(vo));
+
+    private static Result<Maybe<TVo>, Error> Optional<TVo>(long? value, Func<long, Result<TVo, Error>> create) =>
         value is null ? Maybe<TVo>.None : create(value.Value).Map(vo => Maybe.From(vo));
 
     private static T? Take<T>(Result<T, Error> result, List<Error> errors)

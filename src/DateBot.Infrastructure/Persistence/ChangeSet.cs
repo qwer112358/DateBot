@@ -60,10 +60,16 @@ public sealed class ChangeSet
 
     public void Track(ControlState state) => Control = state;
 
-    public void ClearRemovals()
+    /// <summary>
+    /// After a commit: removals are done, and the saved cursor and flags are forgotten so that a later commit in
+    /// this scope does not write back values other scopes have moved on since.
+    /// </summary>
+    public void MarkCommitted()
     {
         _removedMatches.Clear();
         _removedInbox.Clear();
+        Cursor = null;
+        Control = null;
     }
 
     public sealed class MatchEntry(Match match)

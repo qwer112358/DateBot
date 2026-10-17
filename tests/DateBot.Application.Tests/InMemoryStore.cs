@@ -18,5 +18,8 @@ internal sealed class InMemoryStore
 
     public int Commits { get; set; }
 
+    /// <summary>Tombstones of deleted people.</summary>
+    public HashSet<string> Forgotten { get; } = [];
+
     public Match SingleMatch => Matches.Values.Single();
 }

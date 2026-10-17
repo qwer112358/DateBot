@@ -1,8 +1,15 @@
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using CSharpFunctionalExtensions;
-using DateBot.Domain.Common;
-using DateBot.Domain.Shared;
+using DateBot.Domain.Common.Errors;
+using DateBot.Domain.Common.Primitives;
+using DateBot.Domain.Common.Validation;
+using DateBot.Domain.Matches.Enums;
+using DateBot.Domain.Matches.Events;
+using DateBot.Domain.Matches.States;
+using DateBot.Domain.Matches.Validators;
+using DateBot.Domain.Matches.ValueObjects;
+using DateBot.Domain.Shared.ValueObjects;
 
 namespace DateBot.Domain.Matches;
 

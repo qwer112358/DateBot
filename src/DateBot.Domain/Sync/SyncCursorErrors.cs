@@ -1,5 +1,5 @@
-using DateBot.Domain.Common;
-using DateBot.Domain.Shared;
+using DateBot.Domain.Common.Errors;
+using DateBot.Domain.Shared.ValueObjects;
 
 namespace DateBot.Domain.Sync;
 

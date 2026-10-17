@@ -1,6 +1,10 @@
 using CSharpFunctionalExtensions;
-using DateBot.Domain.Common;
-using DateBot.Domain.Shared;
+using DateBot.Domain.Common.Errors;
+using DateBot.Domain.Common.Validation;
+using DateBot.Domain.Inbox.Enums;
+using DateBot.Domain.Inbox.States;
+using DateBot.Domain.Inbox.Validators;
+using DateBot.Domain.Shared.ValueObjects;
 
 namespace DateBot.Domain.Inbox;
 

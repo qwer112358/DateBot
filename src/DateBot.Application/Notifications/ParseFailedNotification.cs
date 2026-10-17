@@ -1,3 +1,5 @@
+using DateBot.Application.Notifications.Enums;
+
 namespace DateBot.Application.Notifications;
 
 public sealed record ParseFailedNotification(long BotMessageId, string RawText, string Reason)

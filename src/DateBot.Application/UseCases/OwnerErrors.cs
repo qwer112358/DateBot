@@ -1,4 +1,4 @@
-using DateBot.Domain.Common;
+using DateBot.Domain.Common.Errors;
 
 namespace DateBot.Application.UseCases;
 

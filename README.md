@@ -131,6 +131,16 @@ schtasks /Create /TN "DateBot" /TR "C:\apps\tashdatebot\DateBot.Worker.exe" /SC 
 | `DateBot.Worker` | Composition root: DI, конфиг, проверка настроек при старте, Serilog, фоновые сервисы |
 | `tests/*` | Домен, use cases на фейковых портах, парсер, тест архитектуры (NetArchTest), хранение на настоящей SQLite |
 
+Внутри проекта файлы разложены по областям (`Matches`, `Parsing`, `Processing`, `MiniApp`, `Persistence`…), а внутри области — по видам; namespace повторяет путь к папке, в файле один тип.
+
+| Слой | Папки внутри области |
+| --- | --- |
+| Domain | агрегат и его ошибки в корне области; `ValueObjects`, `Enums`, `Events`, `States` (входы и снимки для восстановления), `Validators` |
+| Application | `UseCases`: `Commands`, `Queries`, `Handlers`, `Validators`, `Models` (результаты), `Enums`, `OwnerRequests`, `Services` (общие шаги сценариев), `EventHandlers`. Остальные области: `Services`, `Models`, `Enums`, `Options`, `Validators` и свои иерархии (`Routes`, `Plans`, `BotNotifications`). `Ports` поделены на `Persistence`, `Dating`, `Services`; `Abstractions` — на `Messaging`, `Events`, `Errors` |
+| Infrastructure | по адаптерам (`Telegram`, `MiniApp`, `Notifier`, `Llm`, `Persistence`, `Platform`), в каждом `Services`, `Models`, `Enums`, `Options`, `Validators`, `Abstractions`; в `Persistence` — `Records`, `Repositories`, `UnitOfWork`, `Mapping`, `Migrations` |
+| Worker | `Workers` (фоновые сервисы), `Configuration` (проверка настроек при старте) |
+| Тесты | `Fakes`, `Support` (хост, настройки, образцы сообщений) и папки по областям |
+
 Тесты:
 
 ```bash

@@ -1,10 +1,10 @@
-using DateBot.Application.Abstractions;
-using DateBot.Domain.Common;
-using DateBot.Domain.Matches;
+using DateBot.Application.Abstractions.Errors;
+using DateBot.Domain.Common.Errors;
+using DateBot.Domain.Matches.ValueObjects;
 
 namespace DateBot.Application.MiniApp;
 
-/// <summary>Errors the dating-app adapter returns through <see cref="Ports.ITashdateApp"/>.</summary>
+/// <summary>Errors the dating-app adapter returns through <see cref="Ports.Dating.ITashdateApp"/>.</summary>
 public static class AppErrors
 {
     public const string LikeLimitCode = "miniapp.like_limit";

@@ -1,4 +1,6 @@
-using DateBot.Domain.Common;
+using DateBot.Domain.Common.Errors;
+using DateBot.Domain.Matches.Enums;
+using DateBot.Domain.Matches.ValueObjects;
 
 namespace DateBot.Domain.Matches;
 

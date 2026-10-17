@@ -1,5 +1,6 @@
-using DateBot.Domain.Common;
-using DateBot.Domain.Matches;
+using DateBot.Application.Notifications.Enums;
+using DateBot.Domain.Common.Errors;
+using DateBot.Domain.Matches.ValueObjects;
 
 namespace DateBot.Application.Notifications;
 

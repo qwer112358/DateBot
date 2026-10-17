@@ -1,7 +1,7 @@
-using DateBot.Application.Abstractions;
-using DateBot.Domain.Common;
-using DateBot.Domain.Matches;
-using DateBot.Domain.Shared;
+using DateBot.Application.Abstractions.Errors;
+using DateBot.Domain.Common.Errors;
+using DateBot.Domain.Matches.ValueObjects;
+using DateBot.Domain.Shared.ValueObjects;
 
 namespace DateBot.Application.Telegram;
 

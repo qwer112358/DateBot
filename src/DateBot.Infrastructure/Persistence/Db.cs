@@ -1,6 +1,6 @@
 using CSharpFunctionalExtensions;
-using DateBot.Application.Abstractions;
-using DateBot.Domain.Common;
+using DateBot.Application.Abstractions.Errors;
+using DateBot.Domain.Common.Errors;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 

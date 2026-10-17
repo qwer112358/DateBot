@@ -15,6 +15,7 @@ using DateBot.Application.UseCases.Queries;
 using DateBot.Application.UseCases.Services;
 using DateBot.Application.UseCases.Validators;
 using DateBot.Domain.Matches.Enums;
+using DateBot.Domain.Matches.ValueObjects;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -54,6 +55,7 @@ public static class DependencyInjection
         services.AddCommandHandler<OfferMatchesCommand, MatchesReport, OfferMatchesHandler>();
         services.AddCommandHandler<LookUpContactsCommand, ImmutableArray<MessageChannel>, LookUpContactsHandler>();
         services.AddCommandHandler<GetStatusQuery, StatusReport, GetStatusHandler>();
+        services.AddCommandHandler<GetDraftQuery, ReplyText, GetDraftHandler>();
         services.AddCommandHandler<HandleOwnerRequestCommand, Unit, HandleOwnerRequestHandler>();
         services.AddCommandHandler<RememberOwnerAccountCommand, Unit, RememberOwnerAccountHandler>();
         services.AddCommandHandler<ForgetMatchCommand, Unit, ForgetMatchHandler>();

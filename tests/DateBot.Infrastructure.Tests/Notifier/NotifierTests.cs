@@ -82,7 +82,8 @@ public sealed class NotifierTests
     {
         var formatted = NotificationFormatter.Format(Draft(Profile("Анна"), MessageChannel.Telegram, MessageChannel.App, MessageChannel.BotChat));
 
-        formatted.Buttons.Select(b => OwnerBotPoller.ParseCallback(7, 42, b.Data).GetValueOrThrow()).Should().Equal(
+        // A send button only asks; its confirmation is what parses into the send.
+        formatted.Buttons.Select(b => OwnerBotPoller.ParseCallback(7, 42, NotificationFormatter.ConfirmSend(b.Data).Map(c => c.Data).GetValueOrDefault(b.Data)).GetValueOrThrow()).Should().Equal(
             new DraftDecisionRequest(7, 42, Id.Value, Approve: true, MessageChannel.Telegram),
             new DraftDecisionRequest(7, 42, Id.Value, Approve: true, MessageChannel.App),
             new DraftDecisionRequest(7, 42, Id.Value, Approve: true, MessageChannel.BotChat),
@@ -156,9 +157,28 @@ public sealed class NotifierTests
         OwnerBotPoller.KeepsButtons(prefix + IdN).Should().Be(keeps);
 
     [Fact]
-    public void Send_button_of_an_older_card_still_works() =>
-        OwnerBotPoller.ParseCallback(7, 42, "send:" + IdN).GetValueOrThrow()
+    public void Send_button_of_an_older_card_still_asks_and_then_sends() =>
+        OwnerBotPoller.ParseCallback(7, 42, NotificationFormatter.ConfirmSend("send:" + IdN).GetValueOrThrow().Data).GetValueOrThrow()
             .Should().Be(new DraftDecisionRequest(7, 42, Id.Value, Approve: true));
+
+    [Theory]
+    [InlineData("send:tg:", "✅ Да, отправить в Telegram", "ok:tg:")]
+    [InlineData("send:app:", "✅ Да, отправить в приложение", "ok:app:")]
+    public void Send_press_alone_sends_nothing_and_offers_a_confirmation(string prefix, string label, string confirmPrefix)
+    {
+        OwnerBotPoller.ParseCallback(7, 42, prefix + IdN).HasNoValue.Should().BeTrue("a stray tap must not send");
+
+        var confirm = NotificationFormatter.ConfirmSend(prefix + IdN).GetValueOrThrow();
+
+        confirm.Text.Should().Be(label);
+        confirm.Data.Should().Be(confirmPrefix + IdN);
+        NotificationFormatter.ConfirmSend("skip:" + IdN).HasNoValue.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Edit_prompt_carries_the_current_text_ready_to_copy() =>
+        NotificationFormatter.Format(new EditDraftPromptNotification(ReplyText.Create("Привет <b>Лола</b>!").Value)).Html
+            .Should().EndWith("<code>Привет &lt;b&gt;Лола&lt;/b&gt;!</code>");
 
     [Theory]
     [InlineData("/start", typeof(StartRequest))]

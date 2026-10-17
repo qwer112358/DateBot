@@ -27,6 +27,9 @@ public static class NotificationFormatter
     public const string EditPrefix = "edit:";
     public const string RewritePrefix = "rewrite:";
 
+    /// <summary>The confirmed send: <c>ok:</c> followed by what the send button carried after <c>send:</c>.</summary>
+    public const string ConfirmSendPrefix = "ok:";
+
     public static FormattedNotification Format(OwnerNotification notification) => notification switch
     {
         LikeHandledNotification n => About(
@@ -70,6 +73,9 @@ public static class NotificationFormatter
         CatchUpNotification n => Text(
             $"🔄 <b>После простоя дочитано {n.Processed}</b>\n✅ обработано: {n.Done}\n✍️ черновиков: {n.Drafted}\n⏭ пропущено: {n.Ignored}\n⚠️ не разобрано: {n.ParseFailed}\n❌ ошибок: {n.Failed}"),
         StatusNotification n => Text(Status(n.Report)),
+        EditDraftPromptNotification n => Text(
+            "✏️ Нажмите на текст ниже, он скопируется. Вставьте, поправьте и отправьте сюда одним сообщением. /cancel — оставить как было."
+                + $"\n\n<code>{E(n.Draft.Value)}</code>"),
         TextNotification n => Text(E(n.Text)),
         _ => Text(E(notification.ToString())),
     };
@@ -80,6 +86,24 @@ public static class NotificationFormatter
     /// <summary>Every notification about a person comes with their photo.</summary>
     private static FormattedNotification About(Profile profile, string html, params InlineAction[] buttons) =>
         new(html, [.. buttons], profile.Photo);
+
+    /// <summary>
+    /// A send button only asks: its press puts this confirmation above the card's buttons, and only the confirmation
+    /// sends, so a stray tap sends nothing.
+    /// </summary>
+    public static Maybe<InlineAction> ConfirmSend(string data)
+    {
+        if (!data.StartsWith(SendPrefix, StringComparison.Ordinal))
+        {
+            return Maybe<InlineAction>.None;
+        }
+
+        var label = data.StartsWith(SendToTelegramPrefix, StringComparison.Ordinal) ? "✅ Да, отправить в Telegram"
+            : data.StartsWith(SendToAppPrefix, StringComparison.Ordinal) ? "✅ Да, отправить в приложение"
+            : data.StartsWith(SendViaBotPrefix, StringComparison.Ordinal) ? "✅ Да, отправить через бота"
+            : "✅ Да, отправить";
+        return new InlineAction(label, ConfirmSendPrefix + data[SendPrefix.Length..]);
+    }
 
     private static InlineAction Forget(MatchId id) => new("🗑 Забыть", ForgetPrefix + id);
 

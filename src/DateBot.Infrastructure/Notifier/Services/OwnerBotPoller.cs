@@ -4,11 +4,13 @@ using DateBot.Application.UseCases.Enums;
 using DateBot.Application.UseCases.OwnerRequests;
 using DateBot.Domain.Common.Errors;
 using DateBot.Domain.Matches.Enums;
+using DateBot.Infrastructure.Notifier.Models;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace DateBot.Infrastructure.Notifier.Services;
 
@@ -75,11 +77,15 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
         };
     }
 
+    /// <summary>
+    /// Button data → request. A send button (<c>send:</c>) is not a request: it only asks for the confirmation
+    /// (<see cref="NotificationFormatter.ConfirmSend"/>), and its <c>ok:</c> press sends.
+    /// </summary>
     public static Maybe<OwnerRequest> ParseCallback(long chatId, long userId, string data) =>
-        Send(data, NotificationFormatter.SendToTelegramPrefix, MessageChannel.Telegram, chatId, userId)
-            .Or(() => Send(data, NotificationFormatter.SendToAppPrefix, MessageChannel.App, chatId, userId))
-            .Or(() => Send(data, NotificationFormatter.SendViaBotPrefix, MessageChannel.BotChat, chatId, userId))
-            .Or(() => TryId(data, NotificationFormatter.SendPrefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: true)))
+        Send(data, NotificationFormatter.ConfirmSendPrefix + "tg:", MessageChannel.Telegram, chatId, userId)
+            .Or(() => Send(data, NotificationFormatter.ConfirmSendPrefix + "app:", MessageChannel.App, chatId, userId))
+            .Or(() => Send(data, NotificationFormatter.ConfirmSendPrefix + "bot:", MessageChannel.BotChat, chatId, userId))
+            .Or(() => TryId(data, NotificationFormatter.ConfirmSendPrefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: true)))
             .Or(() => TryId(data, NotificationFormatter.SkipPrefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: false)))
             .Or(() => TryId(data, NotificationFormatter.LookUpPrefix).Map(id => (OwnerRequest)new LookUpContactsRequest(chatId, userId, id)))
             .Or(() => TryId(data, NotificationFormatter.ForgetPrefix).Map(id => (OwnerRequest)new ForgetRequest(chatId, userId, id)))
@@ -91,10 +97,16 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
     private async Task<Maybe<OwnerRequest>> ParseCallbackAsync(
         ITelegramBotClient client, CallbackQuery query, Message message, string data, CancellationToken ct)
     {
+        var confirm = NotificationFormatter.ConfirmSend(data);
         try
         {
-            await client.AnswerCallbackQuery(query.Id, "Принято", cancellationToken: ct);
-            if (!KeepsButtons(data))
+            await client.AnswerCallbackQuery(query.Id, confirm.HasValue ? "Подтвердите отправку" : "Принято", cancellationToken: ct);
+            if (confirm.HasValue)
+            {
+                await client.EditMessageReplyMarkup(
+                    message.Chat.Id, message.MessageId, WithConfirmation(message.ReplyMarkup, confirm.GetValueOrThrow()), cancellationToken: ct);
+            }
+            else if (!KeepsButtons(data))
             {
                 await client.EditMessageReplyMarkup(message.Chat.Id, message.MessageId, replyMarkup: null, cancellationToken: ct);
             }
@@ -104,7 +116,7 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
             logger.LogDebug(ex, "Could not acknowledge button press");
         }
 
-        return ParseCallback(message.Chat.Id, query.From.Id, data);
+        return confirm.HasValue ? Maybe<OwnerRequest>.None : ParseCallback(message.Chat.Id, query.From.Id, data);
     }
 
     /// <summary>
@@ -114,6 +126,13 @@ public sealed class OwnerBotPoller(NotifierBot bot, ILogger<OwnerBotPoller> logg
     public static bool KeepsButtons(string data) =>
         data.StartsWith(NotificationFormatter.EditPrefix, StringComparison.Ordinal)
         || data.StartsWith(NotificationFormatter.RewritePrefix, StringComparison.Ordinal);
+
+    /// <summary>The confirmation on top, the card's own buttons below it, so another choice is still one tap away.</summary>
+    private static InlineKeyboardMarkup WithConfirmation(InlineKeyboardMarkup? current, InlineAction confirm) =>
+        new(new[] { new[] { InlineKeyboardButton.WithCallbackData(confirm.Text, confirm.Data) } }
+            .Concat((current?.InlineKeyboard ?? [])
+                .Select(row => row.Where(b => b.CallbackData?.StartsWith(NotificationFormatter.ConfirmSendPrefix, StringComparison.Ordinal) != true).ToArray())
+                .Where(row => row.Length > 0)));
 
     private static Maybe<OwnerRequest> Send(string data, string prefix, MessageChannel channel, long chatId, long userId) =>
         TryId(data, prefix).Map(id => (OwnerRequest)new DraftDecisionRequest(chatId, userId, id, Approve: true, channel));

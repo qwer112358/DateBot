@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DateBot.Application.Replies.Enums;
 using DateBot.Application.Replies.Options;
 using DateBot.Infrastructure.Llm.Services;
@@ -31,9 +32,7 @@ public sealed class FileLlmSettingsTests : IDisposable
         var settings = Settings(_folder);
         await settings.LoadAsync(default);
 
-        await File.WriteAllTextAsync(file, (await File.ReadAllTextAsync(file))
-            .Replace("\"Effort\": \"Low\"", "\"Effort\": \"High\"", StringComparison.Ordinal)
-            .Replace("\"MaxPhotos\": 10", "\"MaxPhotos\": 3", StringComparison.Ordinal));
+        await File.WriteAllTextAsync(file, Set(Set(await File.ReadAllTextAsync(file), "Effort", "\"High\""), "MaxPhotos", "3"));
 
         var loaded = (await settings.LoadAsync(default)).Value;
         loaded.Effort.Should().Be(ModelEffort.High);
@@ -41,16 +40,16 @@ public sealed class FileLlmSettingsTests : IDisposable
     }
 
     [Theory]
-    [InlineData("\"MaxPhotos\": 10", "\"MaxPhotos\": 42")]
-    [InlineData("\"Effort\": \"Low\"", "\"Effort\": \"Turbo\"")]
-    [InlineData("\"MaxPhotos\": 10,", "\"MaxPhotos\": 10,,,")]
-    public async Task Broken_edit_keeps_the_last_good_settings(string from, string to)
+    [InlineData("MaxPhotos", "42")]
+    [InlineData("Effort", "\"Turbo\"")]
+    [InlineData("MaxPhotos", "1,,")]
+    public async Task Broken_edit_keeps_the_last_good_settings(string key, string value)
     {
         var file = await CopyShippedAsync();
         var settings = Settings(_folder);
         var good = (await settings.LoadAsync(default)).Value;
 
-        await File.WriteAllTextAsync(file, (await File.ReadAllTextAsync(file)).Replace(from, to, StringComparison.Ordinal));
+        await File.WriteAllTextAsync(file, Set(await File.ReadAllTextAsync(file), key, value));
 
         (await settings.LoadAsync(default)).Value.Should().Be(good);
     }
@@ -66,6 +65,12 @@ public sealed class FileLlmSettingsTests : IDisposable
     }
 
     public void Dispose() => Directory.Delete(_folder, recursive: true);
+
+    /// <summary>Sets one top-level value whatever the file holds now: the shipped values are yours to change.</summary>
+    private static string Set(string json, string key, string value) =>
+        Regex.Replace(json, $$"""
+            "{{key}}":\s*("[^"]*"|[^,\s]+)
+            """, $"\"{key}\": {value}");
 
     private async Task<string> CopyShippedAsync()
     {

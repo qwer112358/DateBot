@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using DateBot.Application.Notifications;
+using DateBot.Application.Tests.Fakes;
 using DateBot.Application.Tests.Support;
 using DateBot.Application.UseCases.Enums;
 using DateBot.Application.UseCases.OwnerRequests;
@@ -25,8 +26,9 @@ public sealed class DraftEditTests
         await host.OwnerAsync(new EditDraftRequest(7, 42, match.Id.Value, DraftEditKind.OwnText));
         await host.OwnerAsync(new UnknownRequest(7, 42, OwnText));
 
-        host.Notifier.Sent.OfType<TextNotification>().Select(n => n.Text).Should().Contain(t => t.StartsWith("✏️"))
-            .And.Contain(t => t.StartsWith("✅ Черновик обновлён"));
+        host.Notifier.Sent.OfType<EditDraftPromptNotification>().Single().Draft.Value
+            .Should().Be(FakeReplyGenerator.GoodReply, "the current text comes back to be changed");
+        host.Notifier.Sent.OfType<TextNotification>().Select(n => n.Text).Should().Contain(t => t.StartsWith("✅ Черновик обновлён"));
         var card = host.Notifier.Sent.OfType<DraftReadyNotification>().Last();
         card.Draft.Value.Should().Be(OwnText);
         card.Channels.Should().Equal(MessageChannel.App);

@@ -17,6 +17,7 @@ using DateBot.Application.UseCases.Services;
 using DateBot.Domain.Common.Errors;
 using DateBot.Domain.Matches;
 using DateBot.Domain.Matches.Enums;
+using DateBot.Domain.Matches.ValueObjects;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -73,7 +74,7 @@ internal sealed class HandleOwnerRequestHandler(
         return request switch
         {
             CancelRequest => Answer(cancelled ? "Оставил черновик как был." : "Сейчас нечего отменять."),
-            EditDraftRequest start => Answer(AwaitEdit(start)),
+            EditDraftRequest start => await AwaitEditAsync(start, ct),
             _ => await RunAsync(state, request, ct),
         };
     }
@@ -93,13 +94,13 @@ internal sealed class HandleOwnerRequestHandler(
         return Answer(text);
     }
 
-    private string AwaitEdit(EditDraftRequest request)
-    {
-        edits.Await(new DraftEdit(request.MatchId, request.Kind));
-        return request.Kind == DraftEditKind.OwnText
-            ? "✏️ Пришлите новый текст сообщения одним сообщением. /cancel — оставить как было."
-            : "🤖 Напишите, что поменять: например, «короче», «спроси про собаку», «на ты». /cancel — оставить как было.";
-    }
+    /// <summary>«✏️ Изменить» answers with the current text to copy and change; «🤖 Переписать» asks what to change.</summary>
+    private Task<Result<OwnerNotification, Error>> AwaitEditAsync(EditDraftRequest request, CancellationToken ct) =>
+        dispatcher.SendAsync<GetDraftQuery, ReplyText>(new GetDraftQuery(request.MatchId), ct)
+            .Tap(() => edits.Await(new DraftEdit(request.MatchId, request.Kind)))
+            .Map(draft => request.Kind == DraftEditKind.OwnText
+                ? (OwnerNotification)new EditDraftPromptNotification(draft)
+                : new TextNotification("🤖 Напишите, что поменять: например, «короче», «спроси про собаку», «на ты». /cancel — оставить как было."));
 
     private Task<Result<OwnerNotification, Error>> RunAsync(ControlState state, OwnerRequest request, CancellationToken ct) =>
         request switch

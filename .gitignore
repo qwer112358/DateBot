@@ -1,0 +1,18 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+TestResults/
+*.trx
+coverage*/
+
+## Runtime data: session, database, photos, logs (never commit)
+data/
+*.session
+*.db
+*.db-shm
+*.db-wal
+logs/

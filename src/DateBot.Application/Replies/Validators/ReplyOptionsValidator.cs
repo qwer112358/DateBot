@@ -9,6 +9,7 @@ public sealed class ReplyOptionsValidator : AbstractValidator<ReplyOptions>
     public ReplyOptionsValidator()
     {
         RuleFor(o => o.Owner.Name).NotEmpty().WithMessage("Укажите ваше имя для промпта (Replies:Owner:Name)");
+        RuleFor(o => o.MaxPhotos).InclusiveBetween(0, 10).WithMessage("Replies:MaxPhotos — от 0 до 10");
         RuleFor(o => o.PromptsFile).NotEmpty().WithMessage("Укажите файл промптов (Replies:PromptsFile)");
         RuleFor(o => o.DefaultLanguage).IsInEnum();
         RuleFor(o => o.MinLength).GreaterThan(0);

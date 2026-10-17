@@ -63,6 +63,21 @@ public sealed class ProfileAlbumTests
     }
 
     [Fact]
+    public async Task Model_gets_at_most_the_configured_number_of_photos()
+    {
+        await using var host = new TestHost(
+            processing: TestOptions.TashdateProcessing(likeBack: LikeBackMode.Auto),
+            replies: TestOptions.Replies(maxPhotos: 2),
+            parsing: TestOptions.TashdateParsing());
+        host.App.AddLike(501, "Лола", extraPhotos: 3);
+
+        await host.SyncAppAsync();
+
+        host.Generator.Calls.Single().Photos.Should().HaveCount(2);
+        host.Photos.Photos.Should().HaveCount(4, "the owner still gets every photo");
+    }
+
+    [Fact]
     public async Task Likes_command_sends_waiting_cards_again_with_their_album()
     {
         await using var host = Host(LikeBackMode.Confirm);

@@ -9,6 +9,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Update="prompts.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="llm.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />

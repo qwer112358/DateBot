@@ -42,6 +42,6 @@ internal sealed class ReviseDraftHandler(
     private async Task<Result<ReplyText, Error>> RewriteAsync(Match match, ReplyText draft, string hint, CancellationToken ct)
     {
         var all = await photos.GetAllAsync(match, ct);
-        return await composer.ReviseAsync(match.Profile, replies.Value.UsePhoto ? all : [], draft, hint, ct);
+        return await composer.ReviseAsync(match.Profile, [.. all.Take(replies.Value.MaxPhotos)], draft, hint, ct);
     }
 }

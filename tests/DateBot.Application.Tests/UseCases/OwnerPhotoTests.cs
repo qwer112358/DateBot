@@ -17,7 +17,7 @@ public sealed class OwnerPhotoTests
     public async Task Photo_is_kept_for_the_owner_even_when_the_LLM_does_not_get_it()
     {
         await using var host = new TestHost(
-            processing: TestOptions.TashdateProcessing(), replies: TestOptions.Replies(usePhoto: false), parsing: TestOptions.TashdateParsing());
+            processing: TestOptions.TashdateProcessing(), replies: TestOptions.Replies(maxPhotos: 0), parsing: TestOptions.TashdateParsing());
         host.Client.Photo = Maybe.From(Jpeg);
 
         await host.ProcessAsync(TashdateMatch(40));

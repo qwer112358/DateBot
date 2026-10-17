@@ -53,7 +53,7 @@ internal sealed class AnthropicReplyGenerator(
                     Model = settings.Model,
                     MaxTokens = settings.MaxTokens,
                     System = prompt.System,
-                    OutputConfig = new OutputConfig { Effort = Effort.Low },
+                    OutputConfig = new OutputConfig { Effort = settings.Effort },
                     Messages = [new MessageParam { Role = Role.User, Content = content }],
                 },
                 ct);

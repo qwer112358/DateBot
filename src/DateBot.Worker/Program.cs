@@ -14,10 +14,19 @@ using DateBot.Infrastructure.Telegram.Validators;
 using DateBot.Worker.Configuration;
 using DateBot.Worker.Workers;
 using FluentValidation;
+using Microsoft.Extensions.Configuration.Json;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// Model settings to experiment with live in llm.json; it sits right after appsettings, so the environment, the command
+// line and user-secrets still override it.
+var appsettings = builder.Configuration.Sources.OfType<JsonConfigurationSource>().Last(s => s.Path?.StartsWith("appsettings", StringComparison.Ordinal) == true);
+builder.Configuration.Sources.Insert(
+    builder.Configuration.Sources.IndexOf(appsettings) + 1,
+    new JsonConfigurationSource { Path = "llm.json", Optional = false, FileProvider = appsettings.FileProvider });
 
 // Secrets (api_id, api_hash, phone, tokens, API key) live in user-secrets or environment variables, never in the repo.
 builder.Configuration.AddUserSecrets<Program>(optional: true);
@@ -65,6 +74,13 @@ if (loaded.IsFailure)
     throw new InvalidOperationException(loaded.Error.Message);
 }
 
-host.Services.GetRequiredService<ILogger<Program>>().LogInformation("Prompts are read from {PromptsFile}", prompts.FilePath);
+var logger = host.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("Prompts are read from {PromptsFile}", prompts.FilePath);
+var model = host.Services.GetRequiredService<IOptions<AnthropicOptions>>().Value;
+logger.LogInformation(
+    "Model {Model}, effort {Effort}, up to {MaxPhotos} photos",
+    model.Model,
+    model.Effort,
+    host.Services.GetRequiredService<IOptions<ReplyOptions>>().Value.MaxPhotos);
 
 await host.RunAsync();

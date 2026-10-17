@@ -172,11 +172,11 @@ public sealed class GenerateAndSendReply(
 
     /// <summary>
     /// The photos are always fetched and kept, because the owner's notifications show them; the LLM gets them all only
-    /// when <see cref="ReplyOptions.UsePhoto"/> allows.
+    /// up to <see cref="ReplyOptions.MaxPhotos"/>.
     /// </summary>
     private async Task<Result<IReadOnlyList<ProfilePhoto>, Error>> LoadPhotoAsync(Match match, CancellationToken ct)
     {
         var all = await photos.GetAllAsync(match, ct);
-        return Result.Success<IReadOnlyList<ProfilePhoto>, Error>(replies.Value.UsePhoto ? all : []);
+        return Result.Success<IReadOnlyList<ProfilePhoto>, Error>([.. all.Take(replies.Value.MaxPhotos)]);
     }
 }

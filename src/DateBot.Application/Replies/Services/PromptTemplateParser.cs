@@ -17,7 +17,7 @@ public static partial class PromptTemplateParser
     /// <summary>Every placeholder <see cref="PromptBuilder"/> fills.</summary>
     public static readonly FrozenSet<string> Placeholders = new[]
     {
-        "owner_name", "owner_about", "owner_tone", "owner_avoid", "max_length", "language", "photo_rule", Hint,
+        "owner_name", "owner_about", "max_length", "language", "photo_rule", Hint,
     }.ToFrozenSet();
 
     private static readonly string[] Sections = ["system", "photo", "no_photo", "first_message", "revision_system", "revision"];

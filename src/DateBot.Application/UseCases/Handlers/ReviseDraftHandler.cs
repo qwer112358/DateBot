@@ -2,7 +2,6 @@ using CSharpFunctionalExtensions;
 using DateBot.Application.Abstractions.Messaging;
 using DateBot.Application.Ports.Persistence;
 using DateBot.Application.Ports.Services;
-using DateBot.Application.Replies.Options;
 using DateBot.Application.Replies.Services;
 using DateBot.Application.UseCases.Commands;
 using DateBot.Application.UseCases.Enums;
@@ -10,7 +9,6 @@ using DateBot.Application.UseCases.Services;
 using DateBot.Domain.Common.Errors;
 using DateBot.Domain.Matches;
 using DateBot.Domain.Matches.ValueObjects;
-using Microsoft.Extensions.Options;
 
 namespace DateBot.Application.UseCases.Handlers;
 
@@ -23,8 +21,7 @@ internal sealed class ReviseDraftHandler(
     IUnitOfWork unitOfWork,
     ReplyComposer composer,
     ProfilePhotos photos,
-    IClock clock,
-    IOptions<ReplyOptions> replies)
+    IClock clock)
     : ICommandHandler<ReviseDraftCommand, Unit>
 {
     public Task<Result<Unit, Error>> HandleAsync(ReviseDraftCommand command, CancellationToken ct) =>
@@ -42,6 +39,6 @@ internal sealed class ReviseDraftHandler(
     private async Task<Result<ReplyText, Error>> RewriteAsync(Match match, ReplyText draft, string hint, CancellationToken ct)
     {
         var all = await photos.GetAllAsync(match, ct);
-        return await composer.ReviseAsync(match.Profile, [.. all.Take(replies.Value.MaxPhotos)], draft, hint, ct);
+        return await composer.ReviseAsync(match.Profile, all, draft, hint, ct);
     }
 }

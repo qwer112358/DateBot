@@ -6,6 +6,7 @@ using DateBot.Application.Parsing.Options;
 using DateBot.Application.Processing.Enums;
 using DateBot.Application.Processing.Options;
 using DateBot.Application.Replies.Enums;
+using DateBot.Application.Replies.Models;
 using DateBot.Application.Replies.Options;
 using DateBot.Domain.Matches.Enums;
 
@@ -84,9 +85,14 @@ internal static class TestOptions
             HistoryBatchSize = 10,
         };
 
-    public static ReplyOptions Replies(InvalidReplyPolicy policy = InvalidReplyPolicy.Template, int maxPhotos = 10) => new()
+    public static ReplyOptions Replies() => new()
     {
-        Owner = new OwnerProfileOptions { Name = "Рустам", About = "разработчик", Tone = "дружелюбный", Avoid = "работа" },
+        Owner = new OwnerProfileOptions { Name = "Рустам", About = "разработчик" },
+    };
+
+    /// <summary>What llm.json would hold, short templates included.</summary>
+    public static LlmSettings Llm(InvalidReplyPolicy policy = InvalidReplyPolicy.Template, int maxPhotos = 10) => new()
+    {
         DefaultLanguage = ReplyLanguage.Russian,
         MinLength = 20,
         MaxLength = 400,

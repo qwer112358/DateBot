@@ -161,7 +161,7 @@ public sealed class ReplyTests
     }
 
     private static ReplyComposer Composer(FakeReplyGenerator generator) =>
-        new(generator, new FakePromptTemplates(), new FakeJitter(), Options.Create(TestOptions.Replies()), NullLogger<ReplyComposer>.Instance);
+        new(generator, new FakePromptTemplates(), new FakeLlmSettings(), new FakeJitter(), Options.Create(TestOptions.Replies()), NullLogger<ReplyComposer>.Instance);
 
     private static Profile Profile(string bio) =>
         Domain.Matches.ValueObjects.Profile.Create(new ProfileInput(

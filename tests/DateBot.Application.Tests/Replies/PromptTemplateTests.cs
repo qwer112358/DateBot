@@ -16,7 +16,7 @@ public sealed class PromptTemplateTests
     [Fact]
     public void Shipped_file_fills_every_placeholder()
     {
-        var owner = new OwnerProfileOptions { Name = "Рустам", About = "", Tone = "спокойный", Avoid = "работа" };
+        var owner = new OwnerProfileOptions { Name = "Рустам", About = "" };
 
         var prompt = PromptBuilder.Build(ShippedPrompts.Templates, AnyProfile(), owner, ReplyLanguage.Uzbek, hasPhoto: true, maxLength: 300);
 

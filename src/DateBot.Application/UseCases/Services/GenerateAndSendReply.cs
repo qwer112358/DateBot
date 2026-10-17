@@ -9,9 +9,7 @@ using DateBot.Application.Processing.Enums;
 using DateBot.Application.Processing.Options;
 using DateBot.Application.Processing.Routes;
 using DateBot.Application.Processing.Services;
-using DateBot.Application.Replies.Enums;
 using DateBot.Application.Replies.Models;
-using DateBot.Application.Replies.Options;
 using DateBot.Application.Replies.Services;
 using DateBot.Application.Telegram.Models;
 using DateBot.Application.UseCases.Enums;
@@ -41,7 +39,6 @@ public sealed class GenerateAndSendReply(
     ActionPacer pacer,
     IClock clock,
     IOptions<ProcessingOptions> processing,
-    IOptions<ReplyOptions> replies,
     ILogger<GenerateAndSendReply> logger)
 {
     /// <param name="anchor">The bot notification that triggered the message (bot-chat channel); none for an app like.</param>
@@ -117,9 +114,7 @@ public sealed class GenerateAndSendReply(
         match.DraftMessage.Map(draft => new DraftReadyNotification(
             match.Id, match.Kind, match.Profile, draft.Text.GetValueOrThrow(), match.IsMutual, ChannelsFor(match)));
 
-    private bool ShouldDraft(ComposedReply composed) =>
-        processing.Value.Mode == ProcessingMode.Confirm
-        || (composed.Rejection.HasValue && replies.Value.InvalidReplyPolicy == InvalidReplyPolicy.Confirm);
+    private bool ShouldDraft(ComposedReply composed) => processing.Value.Mode == ProcessingMode.Confirm || composed.NeedsReview;
 
     private Task<Result<ReplyOutcome, Error>> DraftAsync(Match match, ReplyText text, Maybe<BotMessageId> anchor, CancellationToken ct) =>
         match.DraftReply(text, anchor, clock.UtcNow)
@@ -171,12 +166,12 @@ public sealed class GenerateAndSendReply(
     }
 
     /// <summary>
-    /// The photos are always fetched and kept, because the owner's notifications show them; the LLM gets them all only
-    /// up to <see cref="ReplyOptions.MaxPhotos"/>.
+    /// The photos are always fetched and kept, because the owner's notifications show them; how many the LLM gets is
+    /// llm.json's call.
     /// </summary>
     private async Task<Result<IReadOnlyList<ProfilePhoto>, Error>> LoadPhotoAsync(Match match, CancellationToken ct)
     {
         var all = await photos.GetAllAsync(match, ct);
-        return Result.Success<IReadOnlyList<ProfilePhoto>, Error>([.. all.Take(replies.Value.MaxPhotos)]);
+        return Result.Success<IReadOnlyList<ProfilePhoto>, Error>(all);
     }
 }

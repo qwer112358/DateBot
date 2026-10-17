@@ -75,8 +75,6 @@ public static class PromptBuilder
         {
             ["owner_name"] = OrUnknown(owner.Name),
             ["owner_about"] = OrUnknown(owner.About),
-            ["owner_tone"] = OrUnknown(owner.Tone),
-            ["owner_avoid"] = OrUnknown(owner.Avoid),
             ["max_length"] = maxLength.ToString(CultureInfo.InvariantCulture),
             ["language"] = LanguageName(language),
             ["photo_rule"] = hasPhoto ? templates.Photo : templates.NoPhoto,

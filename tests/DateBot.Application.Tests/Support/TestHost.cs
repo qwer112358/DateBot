@@ -6,7 +6,7 @@ using DateBot.Application.Ports.Dating;
 using DateBot.Application.Ports.Persistence;
 using DateBot.Application.Ports.Services;
 using DateBot.Application.Processing.Options;
-using DateBot.Application.Replies.Options;
+using DateBot.Application.Replies.Models;
 using DateBot.Application.Telegram.Models;
 using DateBot.Application.Tests.Fakes;
 using DateBot.Application.UseCases.Commands;
@@ -27,13 +27,14 @@ internal sealed class TestHost : IAsyncDisposable
 {
     private readonly ServiceProvider _services;
 
-    public TestHost(ProcessingOptions? processing = null, ReplyOptions? replies = null, ParsingOptions? parsing = null)
+    public TestHost(ProcessingOptions? processing = null, LlmSettings? llm = null, ParsingOptions? parsing = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         services.AddSingleton(Options.Create(processing ?? TestOptions.Processing()));
-        services.AddSingleton(Options.Create(replies ?? TestOptions.Replies()));
+        services.AddSingleton(Options.Create(TestOptions.Replies()));
+        Llm.Current = llm ?? Llm.Current;
         services.AddSingleton(Options.Create(parsing ?? TestOptions.Parsing()));
 
         services.AddApplication();
@@ -44,6 +45,7 @@ internal sealed class TestHost : IAsyncDisposable
         services.AddSingleton<IOwnerNotifier>(Notifier);
         services.AddSingleton<IReplyGenerator>(Generator);
         services.AddSingleton<IPromptTemplates>(Prompts);
+        services.AddSingleton<ILlmSettings>(Llm);
         services.AddSingleton<IClock>(Clock);
         services.AddSingleton<IJitter>(new FakeJitter());
         services.AddSingleton<IRateLimiter>(Limiter);
@@ -69,6 +71,8 @@ internal sealed class TestHost : IAsyncDisposable
     public FakeReplyGenerator Generator { get; } = new();
 
     public FakePromptTemplates Prompts { get; } = new();
+
+    public FakeLlmSettings Llm { get; } = new();
 
     public FakeClock Clock { get; } = new();
 

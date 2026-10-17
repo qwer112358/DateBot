@@ -67,7 +67,7 @@ public sealed class ProfileAlbumTests
     {
         await using var host = new TestHost(
             processing: TestOptions.TashdateProcessing(likeBack: LikeBackMode.Auto),
-            replies: TestOptions.Replies(maxPhotos: 2),
+            llm: TestOptions.Llm(maxPhotos: 2),
             parsing: TestOptions.TashdateParsing());
         host.App.AddLike(501, "Лола", extraPhotos: 3);
 
@@ -75,6 +75,19 @@ public sealed class ProfileAlbumTests
 
         host.Generator.Calls.Single().Photos.Should().HaveCount(2);
         host.Photos.Photos.Should().HaveCount(4, "the owner still gets every photo");
+    }
+
+    [Fact]
+    public async Task Edited_llm_settings_apply_to_the_next_message()
+    {
+        await using var host = Host(LikeBackMode.Auto);
+        host.App.AddLike(501, "Лола", extraPhotos: 3);
+        host.App.AddLike(502, "Мадина", extraPhotos: 3);
+        host.Llm.Current = host.Llm.Current with { Model = "claude-sonnet-5-5", MaxPhotos = 1 };
+
+        await host.SyncAppAsync();
+
+        host.Generator.Calls.Should().HaveCount(2).And.OnlyContain(call => call.Settings.Model == "claude-sonnet-5-5" && call.Photos.Count == 1);
     }
 
     [Fact]

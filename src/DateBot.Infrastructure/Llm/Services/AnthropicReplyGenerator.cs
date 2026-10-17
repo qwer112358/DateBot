@@ -3,6 +3,7 @@ using Anthropic.Exceptions;
 using Anthropic.Models.Messages;
 using CSharpFunctionalExtensions;
 using DateBot.Application.Ports.Services;
+using DateBot.Application.Replies.Enums;
 using DateBot.Application.Replies.Models;
 using DateBot.Application.Telegram.Models;
 using DateBot.Infrastructure.Llm.Options;
@@ -22,10 +23,10 @@ internal sealed class AnthropicReplyGenerator(
     ILogger<AnthropicReplyGenerator> logger)
     : IReplyGenerator
 {
-    public async Task<Result<string, DomainError>> GenerateAsync(ReplyPrompt prompt, IReadOnlyList<ProfilePhoto> photos, CancellationToken ct)
+    public async Task<Result<string, DomainError>> GenerateAsync(
+        ReplyPrompt prompt, IReadOnlyList<ProfilePhoto> photos, LlmSettings settings, CancellationToken ct)
     {
-        var settings = options.Value;
-        if (string.IsNullOrWhiteSpace(settings.ApiKey))
+        if (string.IsNullOrWhiteSpace(options.Value.ApiKey))
         {
             return Failure("llm.not_configured", "Ключ Anthropic API не задан, используется шаблон");
         }
@@ -53,7 +54,7 @@ internal sealed class AnthropicReplyGenerator(
                     Model = settings.Model,
                     MaxTokens = settings.MaxTokens,
                     System = prompt.System,
-                    OutputConfig = new OutputConfig { Effort = settings.Effort },
+                    OutputConfig = new OutputConfig { Effort = ToEffort(settings.Effort) },
                     Messages = [new MessageParam { Role = Role.User, Content = content }],
                 },
                 ct);
@@ -102,6 +103,15 @@ internal sealed class AnthropicReplyGenerator(
         logger.LogWarning(ex, "Reply generation failed: {Code}", code);
         return Failure(code, message);
     }
+
+    private static Effort ToEffort(ModelEffort effort) => effort switch
+    {
+        ModelEffort.Medium => Effort.Medium,
+        ModelEffort.High => Effort.High,
+        ModelEffort.Xhigh => Effort.Xhigh,
+        ModelEffort.Max => Effort.Max,
+        _ => Effort.Low,
+    };
 
     private static Result<string, DomainError> Failure(string code, string message) =>
         Result.Failure<string, DomainError>(DomainError.External(code, message));

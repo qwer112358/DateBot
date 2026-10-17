@@ -26,12 +26,11 @@ using Microsoft.Extensions.Configuration;
 
 namespace DateBot.Infrastructure.Tests.Configuration;
 
-/// <summary>The shipped appsettings.json and llm.json bind and pass validation once the secrets are filled in.</summary>
+/// <summary>The shipped appsettings.json binds and passes validation once the secrets are filled in.</summary>
 public sealed class ConfigurationTests
 {
     private static readonly IConfiguration Shipped = new ConfigurationBuilder()
         .AddJsonFile(Path.Combine(FindRepositoryRoot(), "src", "DateBot.Worker", "appsettings.json"))
-        .AddJsonFile(Path.Combine(FindRepositoryRoot(), "src", "DateBot.Worker", "llm.json"))
         .AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Telegram:ApiId"] = "12345",
@@ -64,18 +63,6 @@ public sealed class ConfigurationTests
         processing.MiniApp.Enabled.Should().BeTrue();
         processing.MiniApp.LikeBack.Should().Be(LikeBackMode.Confirm, "no like back goes out without your yes");
         processing.MiniApp.PollInterval.Should().Be(TimeSpan.FromMinutes(10));
-    }
-
-    [Fact]
-    public void Model_settings_come_from_llm_json()
-    {
-        var anthropic = Bind<AnthropicOptions>(AnthropicOptions.Section);
-        var replies = Bind<ReplyOptions>(ReplyOptions.Section);
-
-        anthropic.Model.Should().Be("claude-haiku-5-5");
-        anthropic.Effort.Should().Be(Anthropic.Models.Messages.Effort.Low);
-        replies.MaxPhotos.Should().Be(10);
-        replies.Templates.Should().NotBeEmpty("appsettings.json still holds the rest of Replies");
     }
 
     [Theory]
@@ -114,7 +101,7 @@ public sealed class ConfigurationTests
 
         processing.LikeBackButtons.Should().Contain("❤");
         processing.MaxPause.Should().Be(TimeSpan.FromSeconds(30));
-        Bind<ReplyOptions>(ReplyOptions.Section).Templates.Keys.Should().BeEquivalentTo(["Russian", "Uzbek", "English"]);
+        Bind<ReplyOptions>(ReplyOptions.Section).LlmFile.Should().Be("llm.json");
     }
 
     [Fact]

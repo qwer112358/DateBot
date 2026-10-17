@@ -41,6 +41,8 @@ public static class DependencyInjection
         services.AddSingleton<IPhotoStore, FilePhotoStore>();
         services.AddSingleton<FilePromptTemplates>();
         services.AddSingleton<IPromptTemplates>(sp => sp.GetRequiredService<FilePromptTemplates>());
+        services.AddSingleton<FileLlmSettings>();
+        services.AddSingleton<ILlmSettings>(sp => sp.GetRequiredService<FileLlmSettings>());
         services.AddSingleton<ILoginPrompt, ConsoleLoginPrompt>();
 
         services.AddDbContext<DateBotDbContext>((sp, db) =>

@@ -43,6 +43,7 @@ internal sealed class TestHost : IAsyncDisposable
         services.AddSingleton<ITashdateApp>(App);
         services.AddSingleton<IOwnerNotifier>(Notifier);
         services.AddSingleton<IReplyGenerator>(Generator);
+        services.AddSingleton<IPromptTemplates>(Prompts);
         services.AddSingleton<IClock>(Clock);
         services.AddSingleton<IJitter>(new FakeJitter());
         services.AddSingleton<IRateLimiter>(Limiter);
@@ -66,6 +67,8 @@ internal sealed class TestHost : IAsyncDisposable
     public FakeNotifier Notifier { get; } = new();
 
     public FakeReplyGenerator Generator { get; } = new();
+
+    public FakePromptTemplates Prompts { get; } = new();
 
     public FakeClock Clock { get; } = new();
 

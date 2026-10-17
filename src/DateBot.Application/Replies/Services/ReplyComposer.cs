@@ -16,6 +16,7 @@ namespace DateBot.Application.Replies.Services;
 /// <summary>LLM text when it passes the checks, otherwise a template.</summary>
 public sealed class ReplyComposer(
     IReplyGenerator generator,
+    IPromptTemplates templates,
     IJitter jitter,
     IOptions<ReplyOptions> options,
     ILogger<ReplyComposer> logger)
@@ -32,8 +33,9 @@ public sealed class ReplyComposer(
             return Template(profile, language, "анкета пустая");
         }
 
-        var prompt = PromptBuilder.Build(profile, settings.Owner, language, photo.HasValue, settings.MaxLength);
-        var generated = await generator.GenerateAsync(prompt, photo, ct);
+        var generated = await templates.LoadAsync(ct)
+            .Map(loaded => PromptBuilder.Build(loaded, profile, settings.Owner, language, photo.HasValue, settings.MaxLength))
+            .Bind(prompt => generator.GenerateAsync(prompt, photo, ct));
 
         return generated
             .Map(Clean)
@@ -52,9 +54,9 @@ public sealed class ReplyComposer(
     {
         var settings = options.Value;
         var language = ProfileLanguage(profile).GetValueOrDefault(settings.DefaultLanguage);
-        var prompt = PromptBuilder.BuildRevision(profile, settings.Owner, language, photo.HasValue, settings.MaxLength, draft, hint);
-
-        return generator.GenerateAsync(prompt, photo, ct)
+        return templates.LoadAsync(ct)
+            .Map(loaded => PromptBuilder.BuildRevision(loaded, profile, settings.Owner, language, photo.HasValue, settings.MaxLength, draft, hint))
+            .Bind(prompt => generator.GenerateAsync(prompt, photo, ct))
             .Map(Clean)
             .Bind(text => Check(text, LanguageDetector.Detect(text).GetValueOrDefault(language), settings))
             .TapError(error => logger.LogWarning("Rewrite for {Name} rejected: {Error}", profile.Name, error));

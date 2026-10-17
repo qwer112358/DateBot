@@ -22,6 +22,9 @@ public sealed class ReplyOptions
 
     public InvalidReplyPolicy InvalidReplyPolicy { get; init; } = InvalidReplyPolicy.Template;
 
+    /// <summary>The prompts you edit; a relative path is looked up in the project folder (dotnet run), then next to the app.</summary>
+    public string PromptsFile { get; init; } = "prompts.md";
+
     /// <summary>Fallback templates per language (keys: Russian, Uzbek, English). <c>{name}</c> is replaced.</summary>
     public Dictionary<string, string[]> Templates { get; init; } = [];
 }

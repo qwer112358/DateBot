@@ -111,7 +111,9 @@ Button captions are compared by whole word and in config order: `Лайк` never
 
 The text is written by `claude-haiku-5-5` (set in `Anthropic:Model`) from the profile, the photo and your profile in `Replies:Owner`. The profile goes to the model as data inside `<profile>` tags with angle brackets escaped, and the system rules say to ignore any instructions in it. Before sending, code checks the text: length, language, no links, phone numbers, `@mentions`, emoji spam or traces of instructions. If the check fails or the API is down, a template from `Replies:Templates` goes out instead (or a draft in `Confirm`, if `InvalidReplyPolicy = Confirm`).
 
-«🤖 Переписать» on a draft sends the model the same rules and profile plus the current draft in `<draft>` tags and your hint. The hint outranks the rules on length, language and tone; the other rules and checks stay. A failed rewrite keeps the old draft instead of a template, since you read the result before it goes anywhere. The prompts are built in `PromptBuilder` (`src/DateBot.Application/Replies/Services`).
+«🤖 Переписать» on a draft sends the model the same rules and profile plus the current draft in `<draft>` tags and your hint. The hint outranks the rules on length, language and tone; the other rules and checks stay. A failed rewrite keeps the old draft instead of a template, since you read the result before it goes anywhere.
+
+The prompt texts live in [src/DateBot.Worker/prompts.md](src/DateBot.Worker/prompts.md) (`Replies:PromptsFile`); the file itself explains its sections and placeholders. It is read before every message, so a saved edit applies to the next draft without a restart: under `dotnet run` the service reads the file in the project folder, a published one reads the copy next to the exe. A broken file (missing section, misspelt placeholder) stops the start-up with the reason; broken later, it gives template messages and a log warning until fixed. The profile and draft tags are added by code, so an edit cannot turn the profile into instructions.
 
 ## Stages and how to check them
 

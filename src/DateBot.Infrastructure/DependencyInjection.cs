@@ -39,6 +39,8 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IJitter, RandomJitter>();
         services.AddSingleton<IPhotoStore, FilePhotoStore>();
+        services.AddSingleton<FilePromptTemplates>();
+        services.AddSingleton<IPromptTemplates>(sp => sp.GetRequiredService<FilePromptTemplates>());
         services.AddSingleton<ILoginPrompt, ConsoleLoginPrompt>();
 
         services.AddDbContext<DateBotDbContext>((sp, db) =>

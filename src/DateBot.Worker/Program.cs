@@ -4,6 +4,7 @@ using DateBot.Application.Processing.Options;
 using DateBot.Application.Replies.Options;
 using DateBot.Infrastructure;
 using DateBot.Infrastructure.Llm.Options;
+using DateBot.Infrastructure.Llm.Services;
 using DateBot.Infrastructure.MiniApp.Options;
 using DateBot.Infrastructure.Notifier.Options;
 using DateBot.Infrastructure.Persistence;
@@ -55,5 +56,15 @@ await using (var scope = host.Services.CreateAsyncScope())
 {
     await scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().InitializeAsync(CancellationToken.None);
 }
+
+// A broken prompts file stops the start-up, as broken settings do; later edits are checked on every message.
+var prompts = host.Services.GetRequiredService<FilePromptTemplates>();
+var loaded = await prompts.LoadAsync(CancellationToken.None);
+if (loaded.IsFailure)
+{
+    throw new InvalidOperationException(loaded.Error.Message);
+}
+
+host.Services.GetRequiredService<ILogger<Program>>().LogInformation("Prompts are read from {PromptsFile}", prompts.FilePath);
 
 await host.RunAsync();

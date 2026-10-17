@@ -8,6 +8,9 @@
     <ProjectReference Include="..\DateBot.Infrastructure\DateBot.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <None Update="prompts.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Serilog.Extensions.Hosting" />

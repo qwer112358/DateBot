@@ -24,6 +24,16 @@ public sealed class TashdateFormatTests
         ProfileMapper.PersonKey(mutual.Profile).Should().Be("id:anya_sample");
     }
 
+    [Theory]
+    [InlineData("💌 Тобой интересуются\n\nЗагляни в приложение — вдруг это взаимно.")]
+    [InlineData("🔥 Рустам, тебя лайкнули 2 раза за последние 24 часа\n\nОткрой приложение — посмотри кто и ответь лайком")]
+    public void Like_hints_without_a_profile_are_ignored_not_parse_failures(string text)
+    {
+        var message = Text(50, text) with { Buttons = [new BotButton("💛 Открыть знакомства", 0, 0)] };
+
+        BotNotificationParser.Parse(message, Rules).Should().BeOfType<IgnoredNotification>();
+    }
+
     [Fact]
     public void Names_with_spaces_and_emoji_are_kept()
     {

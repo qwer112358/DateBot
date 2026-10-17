@@ -29,6 +29,7 @@ internal static class TestOptions
     {
         LikeMarkers = ["понравил", "лайкнул", "yoqtir", "liked you"],
         MutualMarkers = ["у вас мэтч", "мэтч с", "взаимн", "o'zaro", "o‘zaro", "mutual", "it's a match"],
+        IgnoreMarkers = ["Тобой интересуются", "тебя лайкнули"],
         ProfilePatterns = [@"мэтч с (?<name>[^!\n]{1,64})!", FullProfilePattern],
         InterestsPattern = @"^(?:Интересы|Увлечения|Qiziqishlar|Interests)\s*:\s*(?<interests>.+)$",
         UsernamePattern = UsernamePattern,

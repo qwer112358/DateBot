@@ -18,6 +18,11 @@ public sealed record LlmSettings
     /// <summary>How many profile photos, main first, the model gets; 0 = none. Notifications show them all anyway.</summary>
     public int MaxPhotos { get; init; } = 10;
 
+    /// <summary>
+    /// Profile lines the model does not get, by their label before the colon ("Цель знакомства"). Your cards still show them.
+    /// </summary>
+    public string[] HiddenFacts { get; init; } = ["Цель знакомства"];
+
     public int MinLength { get; init; } = 20;
 
     public int MaxLength { get; init; } = 400;

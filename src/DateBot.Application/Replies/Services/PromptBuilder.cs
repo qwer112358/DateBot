@@ -13,10 +13,17 @@ namespace DateBot.Application.Replies.Services;
 /// </summary>
 public static class PromptBuilder
 {
+    /// <param name="hiddenFacts">Labels of profile lines the model does not get (<see cref="LlmSettings.HiddenFacts"/>).</param>
     public static ReplyPrompt Build(
-        PromptTemplates templates, Profile profile, OwnerProfileOptions owner, ReplyLanguage language, bool hasPhoto, int maxLength)
+        PromptTemplates templates,
+        Profile profile,
+        OwnerProfileOptions owner,
+        ReplyLanguage language,
+        bool hasPhoto,
+        int maxLength,
+        IReadOnlyCollection<string>? hiddenFacts = null)
     {
-        var user = new StringBuilder(ProfileBlock(profile))
+        var user = new StringBuilder(ProfileBlock(profile, hiddenFacts ?? []))
             .AppendLine()
             .Append(templates.FirstMessage)
             .ToString();
@@ -36,7 +43,8 @@ public static class PromptBuilder
         bool hasPhoto,
         int maxLength,
         ReplyText draft,
-        string hint)
+        string hint,
+        IReadOnlyCollection<string>? hiddenFacts = null)
     {
         var values = Values(templates, owner, language, hasPhoto, maxLength);
         values[PromptTemplateParser.Hint] = hint.Trim();
@@ -47,7 +55,7 @@ public static class PromptBuilder
             .Append(Fill(templates.RevisionSystem, values))
             .ToString();
 
-        var user = new StringBuilder(ProfileBlock(profile))
+        var user = new StringBuilder(ProfileBlock(profile, hiddenFacts ?? []))
             .AppendLine()
             .AppendLine("<draft>")
             .AppendLine(Sanitize(draft.Value))
@@ -85,7 +93,7 @@ public static class PromptBuilder
         PromptTemplateParser.PlaceholderPattern().Replace(
             template, match => values.TryGetValue(match.Groups["name"].Value, out var value) ? value : match.Value);
 
-    private static string ProfileBlock(Profile profile) =>
+    private static string ProfileBlock(Profile profile, IReadOnlyCollection<string> hiddenFacts) =>
         new StringBuilder()
             .AppendLine("<profile>")
             .AppendLine($"Имя: {Sanitize(profile.Name.Value)}")
@@ -93,12 +101,14 @@ public static class PromptBuilder
             .AppendLine(profile.City.HasValue ? $"Город: {Sanitize(profile.City.GetValueOrThrow().Value)}" : "Город: не указан")
             .AppendLine(profile.Bio.HasValue ? $"О себе: {Sanitize(profile.Bio.GetValueOrThrow().Value)}" : "О себе: пусто")
             .AppendLine(profile.Interests.IsEmpty ? "Интересы: не указаны" : $"Интересы: {Sanitize(profile.Interests.ToString())}")
-            .Append(Facts(profile))
+            .Append(Facts(profile, hiddenFacts))
             .AppendLine("</profile>")
             .ToString();
 
-    private static string Facts(Profile profile) =>
-        string.Concat(profile.Facts.Items.Select(fact => Sanitize(fact) + Environment.NewLine));
+    private static string Facts(Profile profile, IReadOnlyCollection<string> hiddenFacts) =>
+        string.Concat(profile.Facts.Items
+            .Where(fact => !hiddenFacts.Any(label => fact.StartsWith(label.Trim() + ":", StringComparison.OrdinalIgnoreCase)))
+            .Select(fact => Sanitize(fact) + Environment.NewLine));
 
     private static string OrUnknown(string value) => string.IsNullOrWhiteSpace(value) ? "не указано" : value.Trim();
 }

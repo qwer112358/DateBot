@@ -59,6 +59,20 @@ public sealed class ReplyTests
     }
 
     [Fact]
+    public void Hidden_profile_lines_do_not_reach_the_model()
+    {
+        var profile = Domain.Matches.ValueObjects.Profile.Create(new ProfileInput(
+            ProfileName.Create("Лола").Value, Maybe<Age>.None, Maybe<City>.None, Maybe<Bio>.None, Interests.Empty,
+            Maybe<PhotoFileId>.None, Maybe<ContactUsername>.None, "Лола",
+            ProfileFacts.Create(["Цель знакомства: Брак и семья", "Рост: 165 см"]).Value)).Value;
+
+        var prompt = PromptBuilder.Build(
+            ShippedPrompts.Templates, profile, TestOptions.Replies().Owner, ReplyLanguage.Russian, false, 400, ["цель знакомства"]);
+
+        prompt.User.Should().Contain("Рост: 165 см").And.NotContain("Брак");
+    }
+
+    [Fact]
     public void Prompt_mentions_photo_rules_only_with_photo()
     {
         var withPhoto = PromptBuilder.Build(ShippedPrompts.Templates, Profile("Люблю горы"), TestOptions.Replies().Owner, ReplyLanguage.Russian, true, 400);

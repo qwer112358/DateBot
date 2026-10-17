@@ -42,7 +42,7 @@ public sealed class ReplyComposer(
             var language = ProfileLanguage(profile).GetValueOrDefault(settings.DefaultLanguage);
             var sent = Cap(photos, settings);
             return templates.LoadAsync(ct)
-                .Map(loaded => PromptBuilder.BuildRevision(loaded, profile, options.Value.Owner, language, sent.Count > 0, settings.MaxLength, draft, hint))
+                .Map(loaded => PromptBuilder.BuildRevision(loaded, profile, options.Value.Owner, language, sent.Count > 0, settings.MaxLength, draft, hint, settings.HiddenFacts))
                 .Bind(prompt => generator.GenerateAsync(prompt, sent, settings, ct))
                 .Map(Clean)
                 .Bind(text => Check(text, LanguageDetector.Detect(text).GetValueOrDefault(language), settings))
@@ -71,7 +71,7 @@ public sealed class ReplyComposer(
         }
 
         var generated = await templates.LoadAsync(ct)
-            .Map(loaded => PromptBuilder.Build(loaded, profile, options.Value.Owner, language, photos.Count > 0, settings.MaxLength))
+            .Map(loaded => PromptBuilder.Build(loaded, profile, options.Value.Owner, language, photos.Count > 0, settings.MaxLength, settings.HiddenFacts))
             .Bind(prompt => generator.GenerateAsync(prompt, photos, settings, ct));
 
         return generated

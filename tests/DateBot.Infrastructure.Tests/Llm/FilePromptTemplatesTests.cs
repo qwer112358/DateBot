@@ -28,11 +28,11 @@ public sealed class FilePromptTemplatesTests : IDisposable
         var file = Path.Combine(_folder, "prompts.md");
         await File.WriteAllTextAsync(file, shipped);
         var prompts = Prompts(_folder);
-        (await prompts.LoadAsync(default)).Value.FirstMessage.Should().StartWith("Напиши первое сообщение");
+        var before = (await prompts.LoadAsync(default)).Value.FirstMessage;
 
-        await File.WriteAllTextAsync(file, shipped.Replace("Напиши первое сообщение этому человеку", "Напиши короткое сообщение", StringComparison.Ordinal));
+        await File.WriteAllTextAsync(file, shipped.Replace(before, "Напиши короткое сообщение.", StringComparison.Ordinal));
 
-        (await prompts.LoadAsync(default)).Value.FirstMessage.Should().StartWith("Напиши короткое сообщение");
+        (await prompts.LoadAsync(default)).Value.FirstMessage.Should().Be("Напиши короткое сообщение.");
     }
 
     [Fact]

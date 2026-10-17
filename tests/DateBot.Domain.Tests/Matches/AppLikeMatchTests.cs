@@ -85,6 +85,27 @@ public sealed class AppLikeMatchTests
     }
 
     [Fact]
+    public void Card_enriched_from_the_app_gets_its_other_photos_and_keeps_its_own()
+    {
+        var card = NewMatch(MatchKind.Mutual);
+        var album = PhotoAlbum.Create([PhotoFileId.Create("app:2.jpg").Value]).Value;
+
+        card.Enrich(AppLike().Profile.WithExtraPhotos(album));
+
+        card.Profile.ExtraPhotos.Should().Be(album);
+        card.Profile.AllPhotos.Should().Contain(album.Items);
+    }
+
+    [Fact]
+    public void Album_holds_at_most_nine_photos_besides_the_main_one()
+    {
+        var photos = Enumerable.Range(1, 10).Select(i => PhotoFileId.Create($"app:{i}.jpg").Value).ToList();
+
+        PhotoAlbum.Create(photos.Take(9)).IsSuccess.Should().BeTrue();
+        PhotoAlbum.Create(photos).IsFailure.Should().BeTrue("ten more photos and the main one do not fit one Telegram album");
+    }
+
+    [Fact]
     public void Decline_closes_a_new_person_only()
     {
         var fresh = AppLike();

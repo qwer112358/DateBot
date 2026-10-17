@@ -28,6 +28,9 @@ public sealed class MatchRecord
 
     public string? PhotoFileId { get; set; }
 
+    /// <summary>The app profile's other photos, one id per line.</summary>
+    public string ExtraPhotoFileIds { get; set; } = string.Empty;
+
     public string? Username { get; set; }
 
     /// <summary>Profile id in the dating app.</summary>

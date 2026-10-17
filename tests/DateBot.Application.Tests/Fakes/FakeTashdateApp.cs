@@ -87,7 +87,8 @@ internal sealed class FakeTashdateApp : ITashdateApp
         Ok(Maybe.From(new ProfilePhoto(new byte[] { 0xFF, 0xD8, 0xFF }, "image/jpeg")));
 
     /// <summary>Someone liked us in the app; their full profile is behind the id.</summary>
-    public void AddLike(long id, string name, string? bio = "Люблю кофе и горы", string? username = null)
+    /// <param name="extraPhotos">How many photos the profile has besides the main one.</param>
+    public void AddLike(long id, string name, string? bio = "Люблю кофе и горы", string? username = null, int extraPhotos = 0)
     {
         Likes.Add(new AppLike(id, name));
         Profiles[id] = new AppProfile(
@@ -98,7 +99,7 @@ internal sealed class FakeTashdateApp : ITashdateApp
             bio is null ? Maybe<string>.None : Maybe.From(bio),
             ["Кофе", "Походы"],
             ["Рост: 165 см", "Питомцы: кошка"],
-            Maybe.From($"p{id}.jpg"),
+            [$"p{id}.jpg", .. Enumerable.Range(2, extraPhotos).Select(n => $"p{id}-{n}.jpg")],
             $"{name}, 24, Ташкент\n{bio}");
         if (username is not null)
         {

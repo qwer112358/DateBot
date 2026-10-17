@@ -28,14 +28,14 @@ internal sealed class PurgeExpiredDataHandler(
 
         var before = clock.UtcNow.AddDays(-options.Value.RetentionDays);
         return await matches.PurgeReceivedBeforeAsync(before, ct)
-            .Tap(async purgedPhotos =>
+            .Tap(async purged =>
             {
-                foreach (var photo in purgedPhotos)
+                foreach (var photo in purged.Photos)
                 {
                     await photos.DeleteAsync(photo, ct);
                 }
             })
-            .Bind(purgedPhotos => inbox.PurgeSentBeforeAsync(before, ct)
-                .Map(inboxCount => new PurgeReport(purgedPhotos.Count, inboxCount)));
+            .Bind(purged => inbox.PurgeSentBeforeAsync(before, ct)
+                .Map(inboxCount => new PurgeReport(purged.Count, inboxCount)));
     }
 }

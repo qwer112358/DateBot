@@ -4,6 +4,7 @@ using DateBot.Application.Notifications.Enums;
 using DateBot.Application.Ports.Persistence;
 using DateBot.Application.Ports.Services;
 using DateBot.Domain.Common.Errors;
+using DateBot.Domain.Matches.ValueObjects;
 using DateBot.Infrastructure.Notifier.Enums;
 using DateBot.Infrastructure.Notifier.Models;
 using DateBot.Infrastructure.Notifier.Options;
@@ -69,7 +70,8 @@ internal sealed class TelegramOwnerNotifier(
             : new InlineKeyboardMarkup(formatted.Buttons
                 .Chunk(ButtonsPerRow)
                 .Select(row => row.Select(b => InlineKeyboardButton.WithCallbackData(b.Text, b.Data))));
-        var photo = await LoadPhotoAsync(formatted, ct);
+        await SendAlbumAsync(client, chatId, formatted, silent, ct);
+        var photo = formatted.Photo.HasValue ? await LoadPhotoAsync(formatted.Photo.GetValueOrThrow(), ct) : Maybe<byte[]>.None;
 
         if (photo.HasValue && formatted.Html.Length <= CaptionLimit)
         {
@@ -89,14 +91,53 @@ internal sealed class TelegramOwnerNotifier(
         await client.SendMessage(chatId, html, ParseMode.Html, replyMarkup: markup, disableNotification: silent, cancellationToken: ct);
     }
 
-    private async Task<Maybe<byte[]>> LoadPhotoAsync(FormattedNotification formatted, CancellationToken ct)
+    /// <summary>
+    /// The profile's other photos go first, so the card with its buttons stays the last message. Telegram albums take
+    /// 2 to 10 items, so a single extra photo goes on its own; photos missing from the store are skipped.
+    /// </summary>
+    private async Task SendAlbumAsync(ITelegramBotClient client, long chatId, FormattedNotification formatted, bool silent, CancellationToken ct)
     {
-        if (formatted.Photo.HasNoValue)
+        if (formatted.Album.IsDefaultOrEmpty)
         {
-            return Maybe<byte[]>.None;
+            return;
         }
 
-        var loaded = await photos.LoadAsync(formatted.Photo.GetValueOrThrow(), ct);
+        var loaded = new List<byte[]>();
+        foreach (var id in formatted.Album)
+        {
+            var photo = await LoadPhotoAsync(id, ct);
+            if (photo.HasValue)
+            {
+                loaded.Add(photo.GetValueOrThrow());
+            }
+        }
+
+        if (loaded.Count == 1)
+        {
+            using var stream = new MemoryStream(loaded[0]);
+            await client.SendPhoto(chatId, InputFile.FromStream(stream, "photo.jpg"), disableNotification: silent, cancellationToken: ct);
+        }
+        else if (loaded.Count > 1)
+        {
+            var streams = loaded.Select(bytes => new MemoryStream(bytes)).ToList();
+            try
+            {
+                await client.SendMediaGroup(
+                    chatId,
+                    streams.Select((stream, i) => new InputMediaPhoto(InputFile.FromStream(stream, $"photo{i}.jpg"))),
+                    disableNotification: silent,
+                    cancellationToken: ct);
+            }
+            finally
+            {
+                streams.ForEach(stream => stream.Dispose());
+            }
+        }
+    }
+
+    private async Task<Maybe<byte[]>> LoadPhotoAsync(PhotoFileId id, CancellationToken ct)
+    {
+        var loaded = await photos.LoadAsync(id, ct);
         return loaded.IsSuccess && loaded.Value.HasValue
             ? loaded.Value.GetValueOrThrow().Content.ToArray()
             : Maybe<byte[]>.None;

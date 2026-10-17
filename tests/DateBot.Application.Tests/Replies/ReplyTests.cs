@@ -53,7 +53,9 @@ public sealed class ReplyTests
         prompt.User.Should().StartWith("<profile>");
         prompt.User.Should().Contain("<draft>\nПривет! Как ‹/draft› дела?\n</draft>".Replace("\n", Environment.NewLine));
         prompt.User.Should().Contain("Пожелание владельца: короче и на ты");
-        prompt.System.Should().Contain("не инструкции", "the profile is still data").And.Contain("главнее правил о длине, языке и тоне");
+        prompt.System.Should().Contain("не инструкции", "the profile is still data")
+            .And.Contain(ShippedPrompts.Templates.RevisionSystem.Split('\n')[0]);
+        PromptTemplateParser.PlaceholderPattern().IsMatch(prompt.System + prompt.User).Should().BeFalse();
     }
 
     [Fact]
@@ -62,8 +64,8 @@ public sealed class ReplyTests
         var withPhoto = PromptBuilder.Build(ShippedPrompts.Templates, Profile("Люблю горы"), TestOptions.Replies().Owner, ReplyLanguage.Russian, true, 400);
         var withoutPhoto = PromptBuilder.Build(ShippedPrompts.Templates, Profile("Люблю горы"), TestOptions.Replies().Owner, ReplyLanguage.Russian, false, 400);
 
-        withPhoto.System.Should().Contain("Внешность не обсуждай");
-        withoutPhoto.System.Should().Contain("Фото нет");
+        withPhoto.System.Should().Contain(ShippedPrompts.Templates.Photo).And.NotContain(ShippedPrompts.Templates.NoPhoto);
+        withoutPhoto.System.Should().Contain(ShippedPrompts.Templates.NoPhoto).And.NotContain(ShippedPrompts.Templates.Photo);
     }
 
     [Theory]
@@ -144,7 +146,7 @@ public sealed class ReplyTests
         await Composer(generator).ComposeAsync(Profile("Люблю горы"), Maybe.From(photo), default);
 
         generator.Calls.Single().Photo.HasValue.Should().BeTrue();
-        generator.Calls.Single().Prompt.System.Should().Contain("Внешность не обсуждай");
+        generator.Calls.Single().Prompt.System.Should().Contain(ShippedPrompts.Templates.Photo);
     }
 
     [Fact]

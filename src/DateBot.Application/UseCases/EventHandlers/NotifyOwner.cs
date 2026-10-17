@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using DateBot.Application.Abstractions.Events;
+using DateBot.Application.MiniApp.Enums;
 using DateBot.Application.Notifications;
 using DateBot.Application.Ports.Services;
 using DateBot.Application.Processing.Enums;
@@ -34,8 +35,17 @@ internal sealed class NotifyOwner(IOwnerNotifier notifier, IOptions<ProcessingOp
             drafted.Profile,
             drafted.Text,
             drafted.Mutual,
-            MessageRouter.Available(drafted.Profile, drafted.Mutual, drafted.Anchor, options.Value)),
+            MessageRouter.Available(drafted.Profile, drafted.Mutual, drafted.Anchor, options.Value),
+            WithAlbum: IsFirstCard(drafted)),
         ProcessingFailed failed => new ActionFailedNotification(failed.MatchId, failed.Profile, failed.Reason),
         _ => Maybe<OwnerNotification>.None,
     };
+
+    /// <summary>
+    /// The album goes once per person: with the like card when likes are confirmed, otherwise with the first draft.
+    /// An edited draft is not the first card.
+    /// </summary>
+    private bool IsFirstCard(ReplyDrafted drafted) =>
+        !drafted.Revised
+        && !(drafted.Kind == MatchKind.LikedMe && drafted.Anchor.HasNoValue && options.Value.MiniApp.LikeBack == LikeBackMode.Confirm);
 }

@@ -185,7 +185,7 @@ public sealed class TashdateAppClientTests
         var profile = await client.GetProfileAsync(Lola, default);
 
         profile.Value.Interests.Should().Equal("Кофе");
-        profile.Value.PhotoFile.Should().Be(Maybe.From("p1.jpg"));
+        profile.Value.PhotoFiles.Should().Equal("p1.jpg");
     }
 
     [Fact]

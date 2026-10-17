@@ -5,7 +5,7 @@ namespace DateBot.Application.MiniApp.Models;
 
 /// <summary>A profile from the app as readable text: codes are already turned into labels by the adapter.</summary>
 /// <param name="Facts">Lines like "Рост: 172 см" built from the structured fields.</param>
-/// <param name="PhotoFile">First photo file of the profile, if any.</param>
+/// <param name="PhotoFiles">Photo files of the profile in the app's order; the first is the main one.</param>
 /// <param name="RawText">Everything above as one readable block, kept as the original text of the profile.</param>
 public sealed record AppProfile(
     long Id,
@@ -15,5 +15,5 @@ public sealed record AppProfile(
     Maybe<string> Bio,
     ImmutableArray<string> Interests,
     ImmutableArray<string> Facts,
-    Maybe<string> PhotoFile,
+    ImmutableArray<string> PhotoFiles,
     string RawText);

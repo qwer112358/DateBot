@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
 using CSharpFunctionalExtensions;
@@ -43,22 +44,33 @@ public static class ProfileMapper
                 .Map(profile => new MappedProfile(personId.Value, profile));
     }
 
-    /// <summary>A profile from the app: the app id is its identity, the photo is an app file.</summary>
-    public static Result<MappedProfile, Error> FromApp(AppProfile profile) =>
-        ToDomain(
+    /// <summary>A profile from the app: the app id is its identity, the photos are app files.</summary>
+    public static Result<MappedProfile, Error> FromApp(AppProfile profile)
+    {
+        // An odd file name must not cost the whole profile: without a photo the message is still written.
+        var photos = profile.PhotoFiles
+            .Select(file => PhotoFileId.Create(AppPhotoPrefix + file))
+            .Where(id => id.IsSuccess)
+            .Select(id => id.Value)
+            .ToImmutableArray();
+
+        return ToDomain(
             new ParsedProfile(
                 profile.Name,
                 profile.Age,
                 profile.City,
                 profile.Bio,
                 profile.Interests,
-                // An odd file name must not cost the whole profile: without the photo the message is still written.
-                profile.PhotoFile.Map(file => AppPhotoPrefix + file).Where(id => PhotoFileId.Create(id).IsSuccess),
+                photos.IsEmpty ? Maybe<string>.None : photos[0].Value,
                 Maybe<string>.None,
                 Maybe<string>.None,
                 profile.Facts,
                 profile.Id),
-            profile.RawText);
+            profile.RawText)
+            .Bind(mapped => PhotoAlbum
+                .Create(photos.Skip(1).Take(PhotoAlbum.MaxCount))
+                .Map(album => mapped with { Profile = mapped.Profile.WithExtraPhotos(album) }));
+    }
 
     public static bool IsAppPhoto(PhotoFileId photo) => photo.Value.StartsWith(AppPhotoPrefix, StringComparison.Ordinal);
 

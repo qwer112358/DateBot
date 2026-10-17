@@ -57,7 +57,7 @@ public sealed class AppResponsesTests
             "Курение: Нет",
             "Алкоголь: Нет",
             "Питомцы: Кошка");
-        profile.PhotoFile.Should().Be(Maybe.From("a1.jpg"));
+        profile.PhotoFiles.Should().Equal("a1.jpg", "a2.jpg");
         profile.RawText.Should().StartWith("Лола, 23, Самарканд\nЛюблю джаз и рамен");
     }
 
@@ -72,7 +72,7 @@ public sealed class AppResponsesTests
         profile.Bio.HasNoValue.Should().BeTrue();
         profile.Interests.Should().BeEmpty();
         profile.Facts.Should().BeEmpty("an impossible height is dropped");
-        profile.PhotoFile.HasNoValue.Should().BeTrue();
+        profile.PhotoFiles.Should().BeEmpty();
     }
 
     [Fact]

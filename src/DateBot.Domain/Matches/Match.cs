@@ -203,7 +203,7 @@ public sealed class Match : AggregateRoot<MatchId>
             .Tap(() =>
             {
                 _actions.Add(MatchAction.Start(NextSequence, ActionType.SendMessage, ActionStatus.Draft, text, now, anchor));
-                Raise(new ReplyDrafted(Id, Kind, Profile, text, IsMutual, anchor, now));
+                Raise(new ReplyDrafted(Id, Kind, Profile, text, IsMutual, anchor, Revised: false, now));
             });
 
     /// <summary>The owner changed the draft (their own words or a rewrite they asked for); the card comes again with it.</summary>
@@ -213,7 +213,7 @@ public sealed class Match : AggregateRoot<MatchId>
             .Bind(draft => Guard.Require(!IsClosed, MatchErrors.InvalidState(Status, "правка черновика")).Tap(() =>
             {
                 draft.Revise(text, now);
-                Raise(new ReplyDrafted(Id, Kind, Profile, text, IsMutual, draft.Anchor, now));
+                Raise(new ReplyDrafted(Id, Kind, Profile, text, IsMutual, draft.Anchor, Revised: true, now));
             }));
 
     /// <summary>Marks the message as being sent through <paramref name="channel"/>. A draft, if any, becomes the message.</summary>

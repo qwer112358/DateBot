@@ -28,8 +28,17 @@ internal sealed class ForgetMatchHandler(
                 .Bind(() => unitOfWork.CommitAsync(ct)))
             .Map(() => Unit.Value);
 
-    private Task<UnitResult<Error>> DeletePhotoAsync(Match match, CancellationToken ct) =>
-        match.Profile.Photo.HasValue
-            ? photos.DeleteAsync(match.Profile.Photo.GetValueOrThrow(), ct)
-            : Task.FromResult(UnitResult.Success<Error>());
+    private async Task<UnitResult<Error>> DeletePhotoAsync(Match match, CancellationToken ct)
+    {
+        foreach (var photo in match.Profile.AllPhotos)
+        {
+            var deleted = await photos.DeleteAsync(photo, ct);
+            if (deleted.IsFailure)
+            {
+                return deleted;
+            }
+        }
+
+        return UnitResult.Success<Error>();
+    }
 }

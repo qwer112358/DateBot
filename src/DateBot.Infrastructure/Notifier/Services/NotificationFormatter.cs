@@ -45,16 +45,19 @@ public static class NotificationFormatter
             $"✍️ <b>Черновик</b> ({DraftReason(n)})\n{Header(n.Profile)}{Contacts(n.Profile)}{Details(n.Profile)}\n\n<b>Черновик:</b>\n«{E(n.Draft.Value)}»\n\n"
                 + "Отправить некуда: у человека нет @username, а в приложении анкета не найдена. Скопируйте текст и напишите в приложении сами.",
             [new InlineAction("🔄 Найти в приложении", LookUpPrefix + n.MatchId), .. EditButtons(n.MatchId), new InlineAction("⏭ Пропустить", SkipPrefix + n.MatchId)],
-            n.Profile.Photo),
+            n.Profile.Photo,
+            n.WithAlbum ? n.Profile.ExtraPhotos.Items : []),
         DraftReadyNotification n => new FormattedNotification(
             $"✍️ <b>Черновик</b> ({DraftReason(n)})\n{Header(n.Profile)}{Contacts(n.Profile)}{Details(n.Profile)}\n\n<b>Черновик:</b>\n«{E(n.Draft.Value)}»\n\nКуда отправить?",
             [.. n.Channels.Select(channel => SendButton(channel, n.MatchId)), .. EditButtons(n.MatchId), new InlineAction("⏭ Пропустить", SkipPrefix + n.MatchId)],
-            n.Profile.Photo),
+            n.Profile.Photo,
+            n.WithAlbum ? n.Profile.ExtraPhotos.Items : []),
         LikeBackProposedNotification n => About(
             n.Profile,
             $"💛 <b>Вас лайкнули</b>\n{Header(n.Profile)}{Details(n.Profile)}\n\nОтветить взаимным лайком?",
             new InlineAction("❤️ Ответить", LikeBackPrefix + n.MatchId),
-            new InlineAction("⏭ Пропустить", NoLikeBackPrefix + n.MatchId)),
+            new InlineAction("⏭ Пропустить", NoLikeBackPrefix + n.MatchId)) with
+        { Album = n.Profile.ExtraPhotos.Items },
         AppLikesCheckedNotification n => Text(Likes(n.Report)),
         ParseFailedNotification n => Text(
             $"⚠️ <b>Не удалось разобрать сообщение бота</b> #{n.BotMessageId}\nПричина: {E(n.Reason)}\n\n<pre>{E(Truncate(n.RawText, 2500))}</pre>"),

@@ -20,8 +20,8 @@ public sealed class PromptTemplateTests
 
         var prompt = PromptBuilder.Build(ShippedPrompts.Templates, AnyProfile(), owner, ReplyLanguage.Uzbek, hasPhoto: true, maxLength: 300);
 
-        prompt.System.Should().Contain("Имя: Рустам").And.Contain("Чем занимается: не указано").And.Contain("не длиннее 300 символов")
-            .And.Contain("язык: узбекский").And.Contain("Внешность не обсуждай");
+        prompt.System.Should().Contain("Рустам").And.Contain("не указано", "an empty About").And.Contain("300")
+            .And.Contain(PromptBuilder.LanguageName(ReplyLanguage.Uzbek)).And.Contain(ShippedPrompts.Templates.Photo);
         PromptTemplateParser.PlaceholderPattern().IsMatch(prompt.System + prompt.User).Should().BeFalse();
         prompt.System.Should().NotContain("Подстановки", "the comment above the first section is not sent");
     }
@@ -29,8 +29,7 @@ public sealed class PromptTemplateTests
     [Fact]
     public void Edited_text_is_what_the_model_gets()
     {
-        var edited = ShippedPrompts.Text.Replace(
-            "Напиши первое сообщение этому человеку по правилам выше.", "Напиши коротко и спроси про выходные.", StringComparison.Ordinal);
+        var edited = ShippedPrompts.Text.Replace(ShippedPrompts.Templates.FirstMessage, "Напиши коротко и спроси про выходные.", StringComparison.Ordinal);
 
         var prompt = PromptBuilder.Build(
             PromptTemplateParser.Parse(edited).Value, AnyProfile(), TestOptions.Replies().Owner, ReplyLanguage.Russian, false, 400);

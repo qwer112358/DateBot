@@ -7,6 +7,7 @@ using DateBot.Domain.Shared.ValueObjects;
 namespace DateBot.Domain.Matches.Events;
 
 /// <param name="Anchor">The bot notification the draft answers, for the bot-chat channel.</param>
+/// <param name="Revised">The owner changed an existing draft rather than a new one being written.</param>
 public sealed record ReplyDrafted(
     MatchId MatchId,
     MatchKind Kind,
@@ -14,4 +15,5 @@ public sealed record ReplyDrafted(
     ReplyText Text,
     bool Mutual,
     Maybe<BotMessageId> Anchor,
+    bool Revised,
     DateTimeOffset OccurredAt) : IDomainEvent;

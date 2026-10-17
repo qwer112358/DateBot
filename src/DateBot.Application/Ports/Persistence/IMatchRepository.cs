@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DateBot.Application.Ports.Persistence.Models;
 using DateBot.Domain.Common.Errors;
 using DateBot.Domain.Matches;
 using DateBot.Domain.Matches.Enums;
@@ -33,7 +34,7 @@ public interface IMatchRepository
 
     /// <summary>
     /// Deletes matches received before <paramref name="before"/>, leaving tombstones of their identity keys;
-    /// returns their photo references.
+    /// returns how many and their photo references.
     /// </summary>
-    Task<Result<IReadOnlyList<PhotoFileId>, Error>> PurgeReceivedBeforeAsync(DateTimeOffset before, CancellationToken ct);
+    Task<Result<PurgedMatches, Error>> PurgeReceivedBeforeAsync(DateTimeOffset before, CancellationToken ct);
 }

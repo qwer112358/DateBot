@@ -36,6 +36,7 @@ public sealed class DateBotDbContext(DbContextOptions<DateBotDbContext> options)
             e.Property(x => x.City).HasMaxLength(64);
             e.Property(x => x.Username).HasMaxLength(32);
             e.Property(x => x.PhotoFileId).HasMaxLength(256);
+            e.Property(x => x.ExtraPhotoFileIds).HasDefaultValue(string.Empty);
             e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(16);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
             e.HasMany(x => x.Actions).WithOne().HasForeignKey(a => a.ProfileId).OnDelete(DeleteBehavior.Cascade);

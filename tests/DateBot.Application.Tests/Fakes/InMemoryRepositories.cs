@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using DateBot.Application.Ports.Persistence;
+using DateBot.Application.Ports.Persistence.Models;
 using DateBot.Application.Processing.Models;
 using DateBot.Domain.Common.Errors;
 using DateBot.Domain.Inbox;
@@ -49,8 +50,8 @@ internal sealed class InMemoryRepositories(InMemoryStore store)
     public Task<Result<IReadOnlyDictionary<MatchStatus, int>, Error>> CountByStatusAsync(CancellationToken ct) =>
         Ok<IReadOnlyDictionary<MatchStatus, int>>(store.Matches.Values.GroupBy(m => m.Status).ToDictionary(g => g.Key, g => g.Count()));
 
-    public Task<Result<IReadOnlyList<PhotoFileId>, Error>> PurgeReceivedBeforeAsync(DateTimeOffset before, CancellationToken ct) =>
-        Ok<IReadOnlyList<PhotoFileId>>([]);
+    public Task<Result<PurgedMatches, Error>> PurgeReceivedBeforeAsync(DateTimeOffset before, CancellationToken ct) =>
+        Ok(new PurgedMatches(0, []));
 
     public Task<Result<Maybe<InboxMessage>, Error>> FindAsync(BotMessageId id, CancellationToken ct) =>
         Ok(store.Inbox.TryGetValue(id.Value, out var message) ? Maybe.From(message) : Maybe<InboxMessage>.None);

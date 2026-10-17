@@ -89,7 +89,7 @@ internal static class AppResponses
             .Take(Interests.MaxCount)
             .ToImmutableArray();
         var facts = Facts(p, t).Select(f => Truncate(f, ProfileFacts.MaxItemLength)).Take(ProfileFacts.MaxCount).ToImmutableArray();
-        var photo = AppJson.Strings(p, "photos").TryFirst();
+        var photos = AppJson.Strings(p, "photos").ToImmutableArray();
 
         return new AppProfile(
             id.GetValueOrThrow(),
@@ -99,7 +99,7 @@ internal static class AppResponses
             bio,
             interests,
             facts,
-            photo,
+            photos,
             RawText(name.GetValueOrThrow(), age, city, bio, interests, facts));
     }
 

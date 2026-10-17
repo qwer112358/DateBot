@@ -24,6 +24,7 @@ public sealed record Profile
         RawText = input.RawText;
         Facts = input.Facts ?? ProfileFacts.Empty;
         AppId = input.AppId;
+        ExtraPhotos = input.ExtraPhotos ?? PhotoAlbum.Empty;
     }
 
     public ProfileName Name { get; }
@@ -38,7 +39,13 @@ public sealed record Profile
 
     public ProfileFacts Facts { get; }
 
+    /// <summary>The main photo: on every card about the person, and the one the model sees.</summary>
     public Maybe<PhotoFileId> Photo { get; }
+
+    /// <summary>The rest of the app profile's photos, so the owner can look the profile through.</summary>
+    public PhotoAlbum ExtraPhotos { get; }
+
+    public IEnumerable<PhotoFileId> AllPhotos => Photo.ToList().Concat(ExtraPhotos.Items);
 
     /// <summary>Telegram username for direct messages.</summary>
     public Maybe<ContactUsername> Username { get; }
@@ -54,6 +61,9 @@ public sealed record Profile
     public static Result<Profile, Error> Create(ProfileInput input) =>
         Validator.ValidateAndCreate(input, "profile.invalid", i => new Profile(i));
 
+    /// <summary>The same profile with the app's other photos.</summary>
+    public Profile WithExtraPhotos(PhotoAlbum photos) => new(ToInput() with { ExtraPhotos = photos });
+
     /// <summary>The same profile with contacts learned later (a match card, the app's like response).</summary>
     public Profile WithContact(Maybe<ContactUsername> username, Maybe<AppProfileId> appId) =>
         new(ToInput() with { Username = Username.Or(username), AppId = AppId.Or(appId) });
@@ -68,9 +78,12 @@ public sealed record Profile
             Interests = Interests.IsEmpty ? details.Interests : Interests,
             Facts = Facts.IsEmpty ? details.Facts : Facts,
             Photo = Photo.Or(details.Photo),
+
+            // A match card's own photo is the app's main one, so only the app's other photos are added.
+            ExtraPhotos = ExtraPhotos.IsEmpty ? details.ExtraPhotos : ExtraPhotos,
             Username = Username.Or(details.Username),
             AppId = AppId.Or(details.AppId),
         });
 
-    private ProfileInput ToInput() => new(Name, Age, City, Bio, Interests, Photo, Username, RawText, Facts, AppId);
+    private ProfileInput ToInput() => new(Name, Age, City, Bio, Interests, Photo, Username, RawText, Facts, AppId, ExtraPhotos);
 }

@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using DateBot.Application.Ports.Persistence;
+using DateBot.Application.Ports.Persistence.Models;
 using DateBot.Application.Ports.Services;
 using DateBot.Domain.Common.Errors;
 using DateBot.Domain.Matches;
@@ -96,13 +97,13 @@ internal sealed class EfMatchRepository(DateBotDbContext db, ChangeSet changes, 
             .Select(g => new { g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.Key, g => g.Count, ct));
 
-    public Task<Result<IReadOnlyList<PhotoFileId>, Error>> PurgeReceivedBeforeAsync(DateTimeOffset before, CancellationToken ct) =>
+    public Task<Result<PurgedMatches, Error>> PurgeReceivedBeforeAsync(DateTimeOffset before, CancellationToken ct) =>
         Db.TryAsync(async () =>
         {
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
             var expired = db.Matches.Where(m => m.ReceivedAt < before);
             var people = await expired
-                .Select(m => new MatchRecord { PersonId = m.PersonId, Username = m.Username, AppId = m.AppId, PhotoFileId = m.PhotoFileId })
+                .Select(m => new MatchRecord { PersonId = m.PersonId, Username = m.Username, AppId = m.AppId, PhotoFileId = m.PhotoFileId, ExtraPhotoFileIds = m.ExtraPhotoFileIds })
                 .ToListAsync(ct);
             var known = await db.ForgottenPeople.Select(f => f.PersonId).ToListAsync(ct);
             db.ForgottenPeople.AddRange(people
@@ -113,11 +114,14 @@ internal sealed class EfMatchRepository(DateBotDbContext db, ChangeSet changes, 
             await db.SaveChangesAsync(ct);
             await expired.ExecuteDeleteAsync(ct);
             await transaction.CommitAsync(ct);
-            return (IReadOnlyList<PhotoFileId>)[.. people
-                .Where(p => p.PhotoFileId != null)
-                .Select(p => PhotoFileId.Create(p.PhotoFileId!))
-                .Where(p => p.IsSuccess)
-                .Select(p => p.Value)];
+            return new PurgedMatches(
+                people.Count,
+                [.. people
+                    .SelectMany(p => p.ExtraPhotoFileIds.Split('\n', StringSplitOptions.RemoveEmptyEntries).Prepend(p.PhotoFileId))
+                    .OfType<string>()
+                    .Select(PhotoFileId.Create)
+                    .Where(p => p.IsSuccess)
+                    .Select(p => p.Value)]);
         });
 
     private Task<Result<Maybe<Match>, Error>> LoadAsync(IQueryable<MatchRecord> query, CancellationToken ct) =>

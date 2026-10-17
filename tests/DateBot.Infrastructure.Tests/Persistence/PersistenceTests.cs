@@ -265,7 +265,9 @@ public sealed class PersistenceTests : IAsyncLifetime
             var loaded = (await repository.FindByIdAsync(forgotten.Id, default)).Value.GetValueOrThrow();
             await repository.RemoveAsync(loaded, default);
             (await sp.GetRequiredService<IUnitOfWork>().CommitAsync(default)).IsSuccess.Should().BeTrue();
-            (await repository.PurgeReceivedBeforeAsync(Now.AddDays(1), default)).Value.Should().ContainSingle();
+            var purged = (await repository.PurgeReceivedBeforeAsync(Now.AddDays(1), default)).Value;
+            purged.Count.Should().Be(1);
+            purged.Photos.Should().ContainSingle();
         });
 
         await InScopeAsync(async sp =>
@@ -437,7 +439,8 @@ public sealed class PersistenceTests : IAsyncLifetime
                 Maybe<ContactUsername>.None,
                 "Лола, 23, Ташкент",
                 ProfileFacts.Create(["Рост: 165 см", "Питомцы: кошка"]).Value,
-                Maybe.From(AppProfileId.Create(appId).Value))).Value,
+                Maybe.From(AppProfileId.Create(appId).Value),
+                PhotoAlbum.Create([PhotoFileId.Create("app:p501-2.jpg").Value, PhotoFileId.Create("app:p501-3.jpg").Value]).Value)).Value,
             Now)).Value;
 
     private static readonly ReplyText Reply = ReplyText.Create("Привет! Вижу, ты тоже любишь горы.").Value;

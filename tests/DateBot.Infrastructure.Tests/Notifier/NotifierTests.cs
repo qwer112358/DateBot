@@ -120,6 +120,18 @@ public sealed class NotifierTests
     }
 
     [Fact]
+    public void Album_goes_with_the_like_card_and_with_a_first_draft_only()
+    {
+        var album = PhotoAlbum.Create([PhotoFileId.Create("app:2.jpg").Value, PhotoFileId.Create("app:3.jpg").Value]).Value;
+        var profile = Profile("Лола").WithExtraPhotos(album);
+
+        NotificationFormatter.Format(new LikeBackProposedNotification(Id, profile)).Album.Should().Equal(album.Items);
+        NotificationFormatter.Format(Draft(profile, MessageChannel.App) with { WithAlbum = true }).Album.Should().Equal(album.Items);
+        NotificationFormatter.Format(Draft(profile, MessageChannel.App)).Album.Should().BeEmpty();
+        NotificationFormatter.Format(new LikedBackNotification(Id, profile)).Album.IsDefaultOrEmpty.Should().BeTrue();
+    }
+
+    [Fact]
     public void Likes_summary_lists_only_what_happened()
     {
         var html = NotificationFormatter.Format(new AppLikesCheckedNotification(

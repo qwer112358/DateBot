@@ -13,9 +13,10 @@ using Microsoft.Extensions.Options;
 namespace DateBot.Application.UseCases.Services;
 
 /// <summary>
-/// The person's photo, kept locally: every notification about them shows it, whether or not the LLM sees it.
-/// Taken from local storage, otherwise downloaded from the bot message (Telegram) or the app and stored.
-/// Problems with a photo never block anything; they are logged and the photo is simply missing.
+/// The person's photos, kept locally: every notification about them shows the main one, whether or not the LLM sees it,
+/// and the first cards about them show the rest as an album. Taken from local storage, otherwise downloaded from the
+/// bot message (Telegram) or the app and stored. Problems with a photo never block anything; they are logged and the
+/// photo is simply missing.
 /// </summary>
 public sealed class ProfilePhotos(
     ITashdateClient client,
@@ -24,14 +25,19 @@ public sealed class ProfilePhotos(
     IOptions<ProcessingOptions> processing,
     ILogger<ProfilePhotos> logger)
 {
+    /// <summary>Stores every photo of the profile and returns the main one.</summary>
     public async Task<Maybe<ProfilePhoto>> GetAsync(Match match, CancellationToken ct)
     {
-        if (match.Profile.Photo.HasNoValue)
+        foreach (var extra in match.Profile.ExtraPhotos.Items)
         {
-            return Maybe<ProfilePhoto>.None;
+            await GetAsync(match, extra, ct);
         }
 
-        var photoId = match.Profile.Photo.GetValueOrThrow();
+        return match.Profile.Photo.HasValue ? await GetAsync(match, match.Profile.Photo.GetValueOrThrow(), ct) : Maybe<ProfilePhoto>.None;
+    }
+
+    private async Task<Maybe<ProfilePhoto>> GetAsync(Match match, PhotoFileId photoId, CancellationToken ct)
+    {
         var photo = await photos.LoadAsync(photoId, ct)
             .Bind(stored => stored.HasValue
                 ? Task.FromResult(Result.Success<Maybe<ProfilePhoto>, Error>(stored))

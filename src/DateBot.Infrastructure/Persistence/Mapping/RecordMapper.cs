@@ -32,6 +32,9 @@ internal static class RecordMapper
         var interests = Take(Interests.Create(Lines(record.Interests)), errors);
         var facts = Take(ProfileFacts.Create(Lines(record.Facts)), errors);
         var photo = Take(Optional(record.PhotoFileId, PhotoFileId.Create), errors);
+        var extraPhotos = Take(
+            PhotoAlbum.Create(Lines(record.ExtraPhotoFileIds).Select(line => Take(PhotoFileId.Create(line), errors)).OfType<PhotoFileId>()),
+            errors);
         var username = Take(Optional(record.Username, ContactUsername.Create), errors);
         var appId = Take(Optional(record.AppId, AppProfileId.Create), errors);
         var actions = record.Actions.Select(a => Take(ToState(a), errors)).ToList();
@@ -42,7 +45,7 @@ internal static class RecordMapper
         }
 
         return Profile
-            .Create(new ProfileInput(name!, age, city, bio, interests!, photo, username, record.RawText, facts, appId))
+            .Create(new ProfileInput(name!, age, city, bio, interests!, photo, username, record.RawText, facts, appId, extraPhotos))
             .Bind(profile => Match.Restore(new MatchState(
                 id!, personId!, source, record.Kind, profile, record.ReceivedAt, record.Status,
                 [.. actions.OfType<MatchActionState>()], record.IsMutual)))
@@ -69,6 +72,7 @@ internal static class RecordMapper
         record.Interests = string.Join('\n', profile.Interests.Items);
         record.Facts = string.Join('\n', profile.Facts.Items);
         record.PhotoFileId = profile.Photo.HasValue ? profile.Photo.GetValueOrThrow().Value : null;
+        record.ExtraPhotoFileIds = string.Join('\n', profile.ExtraPhotos.Items.Select(p => p.Value));
         record.Username = profile.Username.HasValue ? profile.Username.GetValueOrThrow().Value : null;
         record.AppId = profile.AppId.HasValue ? profile.AppId.GetValueOrThrow().Value : null;
         record.RawText = profile.RawText;

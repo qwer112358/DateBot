@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DateBot.Domain/DateBot.Domain.csproj" />
+    <Project Path="src/DateBot.Application/DateBot.Application.csproj" />
+    <Project Path="src/DateBot.Infrastructure/DateBot.Infrastructure.csproj" />
+    <Project Path="src/DateBot.Worker/DateBot.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DateBot.Domain.Tests/DateBot.Domain.Tests.csproj" />
+    <Project Path="tests/DateBot.Application.Tests/DateBot.Application.Tests.csproj" />
+    <Project Path="tests/DateBot.Infrastructure.Tests/DateBot.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

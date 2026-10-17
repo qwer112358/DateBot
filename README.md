@@ -1,6 +1,8 @@
-# TashdateBot
+# DateBot
 
-Локальный .NET-сервис (userbot), который под вашим Telegram-аккаунтом читает уведомления бота Tashdate о лайках, разбирает анкету и отвечает: лайком и персональным сообщением на «вас лайкнули», только сообщением на «взаимную симпатию». Обо всём важном вам пишет отдельный бот-уведомитель.
+Локальный .NET-сервис, который отвечает на лайки в сервисах знакомств: разбирает анкету и отвечает лайком и персональным сообщением на «вас лайкнули», только сообщением на «взаимную симпатию». Обо всём важном вам пишет отдельный бот-уведомитель.
+
+Первая поддерживаемая площадка — Tashdate: сервис работает как userbot под вашим Telegram-аккаунтом и читает уведомления бота Tashdate. Badoo запланирован следующим. Генерация ответа, хранение, лимиты и бот-уведомитель не привязаны к Tashdate; всё специфичное для Tashdate собрано в порте `ITashdateClient`, его адаптере и секции настроек `Parsing`. Для второй площадки понадобятся свой адаптер и признак площадки у анкеты (`TashdateUserId` → общий идентификатор).
 
 Реализация по ТЗ «userbot для Tashdate (авто-ответ на лайки)». Код готов для всех четырёх этапов. Формат уведомлений Tashdate пока не подтверждён, поэтому правила разбора и кнопки вынесены в конфиг: их нужно сверить с реальными сообщениями до включения режима `Auto`.
 
@@ -11,21 +13,21 @@
 1. Секреты кладутся в user-secrets, в репозиторий они не попадают:
 
 ```bash
-cd src/TashdateBot.Worker
+cd src/DateBot.Worker
 dotnet user-secrets set "Telegram:ApiId" "1234567"
 dotnet user-secrets set "Telegram:ApiHash" "0123456789abcdef0123456789abcdef"
 dotnet user-secrets set "Telegram:PhoneNumber" "+998901234567"
-dotnet user-secrets set "Telegram:TashdateBot" "имя_бота_tashdate"
+dotnet user-secrets set "Telegram:TashdateBotUsername" "имя_бота_tashdate"
 dotnet user-secrets set "Notifier:BotToken" "123456:ABC..."
 dotnet user-secrets set "Anthropic:ApiKey" "sk-ant-..."
 dotnet user-secrets set "Replies:Owner:Name" "Ваше имя"
 dotnet user-secrets set "Replies:Owner:About" "чем занимаетесь"
 ```
 
-2. Первый запуск делается в консоли: Telegram пришлёт код входа, его нужно ввести (и пароль двухэтапной проверки, если он включён). После этого сессия хранится в `%LOCALAPPDATA%\TashdateBot\telegram.session`, вне репозитория.
+2. Первый запуск делается в консоли: Telegram пришлёт код входа, его нужно ввести (и пароль двухэтапной проверки, если он включён). После этого сессия хранится в `%LOCALAPPDATA%\DateBot\telegram.session`, вне репозитория.
 
 ```bash
-dotnet run --project src/TashdateBot.Worker
+dotnet run --project src/DateBot.Worker
 ```
 
 3. Напишите боту-уведомителю `/start`. Сервис запомнит чат и будет принимать команды только от того Telegram-аккаунта, под которым вошёл userbot.
@@ -45,16 +47,16 @@ dotnet run --project src/TashdateBot.Worker
 ## Как это работает
 
 1. При старте сервис входит в Telegram, находит чат с ботом Tashdate и дочитывает историю от курсора (`messages.getHistory` с `min_id`).
-2. Каждое сообщение бота сначала сохраняется как есть (таблица `BotMessages` в SQLite-файле `%LOCALAPPDATA%\TashdateBot\tashdate.db`), затем разбирается по правилам из конфига.
+2. Каждое сообщение бота сначала сохраняется как есть (таблица `BotMessages` в SQLite-файле `%LOCALAPPDATA%\DateBot\datebot.db`), затем разбирается по правилам из конфига.
 3. Для новой анкеты создаётся агрегат `Match`; лайк в ответ и сообщение пишутся в журнал `Actions` со статусом `Pending` до выполнения.
 4. Финальный статус сообщения и сдвиг курсора сохраняются в одной транзакции. FLOOD_WAIT, часовой лимит, `/stop` и сетевые сбои оставляют сообщение необработанным, и оно повторяется позже без повторения уже сделанных шагов.
 5. Дальше сервис ждёт новых сообщений бота (живые обновления) и раз в `PollInterval` перечитывает чат на случай пропущенного обновления.
 
-Фото анкеты скачивается, хранится локально в `%LOCALAPPDATA%\TashdateBot\photos` и передаётся в Claude вместе с текстом анкеты. Модель может опереться на нейтральную деталь фото (место, занятие, питомец), но внешность не обсуждает. В режиме `Confirm` фото приходит вместе с черновиком. Отключается через `Replies:UsePhoto`.
+Фото анкеты скачивается, хранится локально в `%LOCALAPPDATA%\DateBot\photos` и передаётся в Claude вместе с текстом анкеты. Модель может опереться на нейтральную деталь фото (место, занятие, питомец), но внешность не обсуждает. В режиме `Confirm` фото приходит вместе с черновиком. Отключается через `Replies:UsePhoto`.
 
 ## Настройка разбора уведомлений
 
-Правила живут в секции `Parsing` файла `src/TashdateBot.Worker/appsettings.json`:
+Правила живут в секции `Parsing` файла `src/DateBot.Worker/appsettings.json`:
 
 | Параметр | Назначение |
 | --- | --- |
@@ -100,26 +102,26 @@ dotnet run --project src/TashdateBot.Worker
 Автозапуск в Windows при входе в систему (после первого интерактивного входа):
 
 ```bash
-dotnet publish src/TashdateBot.Worker -c Release -o C:/apps/tashdatebot
-schtasks /Create /TN "TashdateBot" /TR "C:\apps\tashdatebot\TashdateBot.Worker.exe" /SC ONLOGON /RL LIMITED
+dotnet publish src/DateBot.Worker -c Release -o C:/apps/tashdatebot
+schtasks /Create /TN "DateBot" /TR "C:\apps\tashdatebot\DateBot.Worker.exe" /SC ONLOGON /RL LIMITED
 ```
 
-Сессия, база и фото лежат в `%LOCALAPPDATA%\TashdateBot` и не зависят от папки публикации; логи пишутся в `logs/` рядом с приложением. Чтобы хранить данные рядом с приложением, задайте `Storage:DataDirectory` (например, `data`).
+Сессия, база и фото лежат в `%LOCALAPPDATA%\DateBot` и не зависят от папки публикации; логи пишутся в `logs/` рядом с приложением. Чтобы хранить данные рядом с приложением, задайте `Storage:DataDirectory` (например, `data`).
 
 ## Структура решения
 
 | Проект | Что внутри |
 | --- | --- |
-| `TashdateBot.Domain` | Агрегаты `Match`, `SyncCursor`, `InboxMessage`; value objects с фабриками и валидаторами FluentValidation; доменные события; `Error` |
-| `TashdateBot.Application` | Use cases (`ProcessBotMessage`, `LikeBack`, `GenerateAndSendReply`, `CatchUpHistory`, `SendReply`, команды владельца), порты, парсер, промпт, проверка ответа, лёгкий диспетчер с декоратором валидации |
-| `TashdateBot.Infrastructure` | WTelegramClient (userbot), Telegram.Bot (уведомитель), Anthropic C# SDK, EF Core + SQLite с миграциями, часы, паузы, хранилище фото |
-| `TashdateBot.Worker` | Composition root: DI, конфиг, проверка настроек при старте, Serilog, фоновые сервисы |
+| `DateBot.Domain` | Агрегаты `Match`, `SyncCursor`, `InboxMessage`; value objects с фабриками и валидаторами FluentValidation; доменные события; `Error` |
+| `DateBot.Application` | Use cases (`ProcessBotMessage`, `LikeBack`, `GenerateAndSendReply`, `CatchUpHistory`, `SendReply`, команды владельца), порты, парсер, промпт, проверка ответа, лёгкий диспетчер с декоратором валидации |
+| `DateBot.Infrastructure` | WTelegramClient (userbot), Telegram.Bot (уведомитель), Anthropic C# SDK, EF Core + SQLite с миграциями, часы, паузы, хранилище фото |
+| `DateBot.Worker` | Composition root: DI, конфиг, проверка настроек при старте, Serilog, фоновые сервисы |
 | `tests/*` | Домен, use cases на фейковых портах, парсер, тест архитектуры (NetArchTest), хранение на настоящей SQLite |
 
 Тесты:
 
 ```bash
-dotnet test TashdateBot.slnx
+dotnet test DateBot.slnx
 ```
 
 ## Решения, принятые при реализации
@@ -128,7 +130,7 @@ dotnet test TashdateBot.slnx
 - **Таблица `BotMessages`.** Добавлена к трём таблицам из ТЗ: этап 1 требует хранить сырые сообщения, а `ParseFailed` должен ждать ручного разбора.
 - **Статус `Skipped`.** Добавлен для «Пропустить» в режиме `Confirm`.
 - **Не больше одного сообщения важнее повтора.** Если сервис упал посреди отправки, сообщение не повторяется (неизвестно, ушло ли оно): анкета уходит в `Failed`, вам приходит уведомление. Незавершённый лайк повторяется, как в ТЗ.
-- **Данные вне репозитория.** Сессия, БД и фото по умолчанию в `%LOCALAPPDATA%\TashdateBot`: так их не удалит пересборка или `git clean`. В ТЗ база «рядом с приложением» — это включается одной настройкой `Storage:DataDirectory`.
+- **Данные вне репозитория.** Сессия, БД и фото по умолчанию в `%LOCALAPPDATA%\DateBot`: так их не удалит пересборка или `git clean`. В ТЗ база «рядом с приложением» — это включается одной настройкой `Storage:DataDirectory`.
 - **Первый запуск.** Без курсора сервис не читает весь чат с ботом с начала, а стартует с текущего момента (`FirstRunBackfill`).
 - **Свой диспетчер вместо MediatR.** Каждая команда выполняется в своём DI-scope, валидация входа — декоратором.
 - **FluentAssertions 7.x.** Последняя версия под Apache-2.0; 8.x требует коммерческую лицензию.

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\DateBot.Application\DateBot.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Anthropic" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Telegram.Bot" />
+    <PackageReference Include="WTelegramClient" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="DateBot.Infrastructure.Tests" />
+  </ItemGroup>
+</Project>
